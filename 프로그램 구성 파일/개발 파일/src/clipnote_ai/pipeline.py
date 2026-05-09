@@ -136,6 +136,7 @@ class VideoNotePipeline:
         transcript_path = self._write_transcript(job_dir, chunks)
         analysis = self._analyze_scenes(source_title, source_label, duration, chunks)
         scenes = self._normalize_scenes(analysis, duration, chunks)
+        self._attach_full_transcript_to_scenes(scenes, chunks)
         self._extract_scene_images(video_path, support_dir, scenes)
 
         markdown_path = self._render_markdown(support_dir, source_title, source_label, duration, chunks, scenes, analysis)
@@ -352,12 +353,22 @@ class VideoNotePipeline:
         transcript_path.write_text("\n".join(lines).strip() + "\n", encoding="utf-8")
         return transcript_path
 
-    def _transcript_paragraphs(self, text: str, sentences_per_paragraph: int = 2, max_chars: int = 260) -> list[str]:
+    def _split_sentences(self, text: str) -> list[str]:
         normalized = re.sub(r"\s+", " ", text.strip())
         if not normalized:
             return []
 
-        sentences = [part.strip() for part in re.split(r"(?<=[.!?。！？])\s+", normalized) if part.strip()]
+        marked = re.sub(r"(?<=[.!?。！？])\s*", "\n", normalized)
+        sentences = [part.strip() for part in marked.splitlines() if part.strip()]
+        if len(sentences) == 1 and len(sentences[0]) > 360:
+            return self._split_long_text(sentences[0], 220)
+        return sentences
+
+    def _transcript_paragraphs(self, text: str, sentences_per_paragraph: int = 2, max_chars: int = 260) -> list[str]:
+        sentences = self._split_sentences(text)
+        if not sentences:
+            return []
+
         paragraphs: list[str] = []
         current: list[str] = []
         current_len = 0
@@ -376,6 +387,39 @@ class VideoNotePipeline:
         if len(paragraphs) == 1 and len(paragraphs[0]) > max_chars:
             paragraphs = self._split_long_text(paragraphs[0], max_chars)
 
+        return paragraphs
+
+    def _note_paragraphs(self, text: str) -> list[str]:
+        sentences = self._split_sentences(text)
+        if not sentences:
+            return []
+
+        paragraphs: list[str] = []
+        current: list[str] = []
+        current_len = 0
+
+        def flush() -> None:
+            nonlocal current, current_len
+            if current:
+                paragraphs.append(" ".join(current).strip())
+                current = []
+                current_len = 0
+
+        for sentence in sentences:
+            if len(sentence) > 210:
+                flush()
+                paragraphs.extend(self._split_long_text(sentence, 210))
+                continue
+
+            should_group_short = current and current_len < 72 and len(sentence) < 72 and len(current) < 2
+            if not should_group_short:
+                flush()
+            current.append(sentence)
+            current_len += len(sentence)
+            if current_len >= 150 or len(current) >= 2:
+                flush()
+
+        flush()
         return paragraphs
 
     def _split_long_text(self, text: str, max_chars: int = 260) -> list[str]:
@@ -516,6 +560,37 @@ class VideoNotePipeline:
                 scene.script = self._fallback_scene_script(scene.seconds, chunks)
         return scenes
 
+    def _attach_full_transcript_to_scenes(self, scenes: list[Scene], chunks: list[TranscriptChunk]) -> None:
+        if not scenes:
+            return
+
+        ordered = sorted(scenes, key=lambda scene: scene.seconds)
+        assigned: dict[int, list[str]] = {scene.index: [] for scene in ordered}
+
+        def scene_for_time(seconds: float) -> Scene:
+            selected = ordered[0]
+            for scene in ordered:
+                if seconds >= scene.seconds:
+                    selected = scene
+                else:
+                    break
+            return selected
+
+        for chunk in chunks:
+            text = (chunk.clean_text or chunk.raw_text).strip()
+            sentences = self._split_sentences(text)
+            if not sentences:
+                continue
+            duration = max(1.0, float(chunk.end) - float(chunk.start))
+            for sentence_index, sentence in enumerate(sentences):
+                sentence_time = float(chunk.start) + duration * ((sentence_index + 0.5) / len(sentences))
+                assigned[scene_for_time(sentence_time).index].append(sentence)
+
+        for scene in ordered:
+            full_script = " ".join(assigned.get(scene.index, [])).strip()
+            if full_script:
+                scene.script = full_script
+
     def _fallback_scene_script(self, seconds: float, chunks: list[TranscriptChunk]) -> str:
         if not chunks:
             return ""
@@ -585,7 +660,7 @@ class VideoNotePipeline:
                     "",
                 ]
             )
-            lines.extend(self._transcript_paragraphs(scene.script))
+            lines.extend(self._note_paragraphs(scene.script))
             lines.append("")
 
         markdown_path.write_text("\n".join(lines).strip() + "\n", encoding="utf-8")
@@ -608,7 +683,7 @@ class VideoNotePipeline:
         scene_cards = []
         for scene in scenes:
             rel_image = scene.image_path.relative_to(html_path.parent).as_posix() if scene.image_path else ""
-            script_html = "".join(f"<p>{html.escape(paragraph)}</p>" for paragraph in self._transcript_paragraphs(scene.script))
+            script_html = "".join(f"<p>{html.escape(paragraph)}</p>" for paragraph in self._note_paragraphs(scene.script))
             scene_cards.append(
                 f"""
                 <section class="scene">
@@ -682,8 +757,11 @@ class VideoNotePipeline:
     }}
     img {{
       width: 100%;
-      max-height: 720px;
+      max-width: 760px;
+      max-height: 520px;
       object-fit: contain;
+      display: block;
+      margin: 0 auto;
       background: #111827;
       border-radius: 8px;
       border: 1px solid var(--line);
@@ -864,13 +942,13 @@ class VideoNotePipeline:
                 story.append(PageBreak())
             block = [Paragraph(f"{self._pdf_paragraph_text(scene.heading)} ({scene.timecode})", styles["h2"])]
             if scene.image_path and scene.image_path.exists():
-                image = self._pdf_image(scene.image_path, content_width, 118 * mm)
+                image = self._pdf_image(scene.image_path, content_width * 0.88, 88 * mm)
                 if image:
                     image.hAlign = "CENTER"
                     block.append(image)
                     block.append(Spacer(1, 4 * mm))
             story.append(KeepTogether(block))
-            for paragraph in self._transcript_paragraphs(scene.script):
+            for paragraph in self._note_paragraphs(scene.script):
                 story.append(Paragraph(self._pdf_paragraph_text(paragraph), styles["body"]))
 
         def draw_footer(canvas, document):
@@ -937,8 +1015,8 @@ class VideoNotePipeline:
             run.font.color.rgb = RGBColor(37, 99, 235)
             run.font.size = Pt(9)
 
-        max_width = 6.2
-        max_height = 4.9
+        max_width = 5.4
+        max_height = 3.7
         for index, scene in enumerate(scenes):
             if index > 0:
                 document.add_page_break()
@@ -955,7 +1033,7 @@ class VideoNotePipeline:
                     picture_paragraph = document.add_paragraph()
                     picture_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
                     picture_paragraph.add_run().add_picture(str(scene.image_path), width=Inches(width_inches))
-            for paragraph_text in self._transcript_paragraphs(scene.script):
+            for paragraph_text in self._note_paragraphs(scene.script):
                 paragraph = document.add_paragraph(paragraph_text)
                 paragraph.paragraph_format.space_after = Pt(8)
                 paragraph.paragraph_format.line_spacing = 1.15
