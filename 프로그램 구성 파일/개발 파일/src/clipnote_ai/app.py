@@ -13,7 +13,14 @@ import tkinter as tk
 import customtkinter as ctk
 
 from clipnote_ai.pipeline import PipelineResult, VideoNotePipeline
-from clipnote_ai.settings import DEFAULT_TEXT_MODEL, AppSettings, default_output_dir, load_settings, save_settings
+from clipnote_ai.settings import (
+    DEFAULT_TEXT_MODEL,
+    AppSettings,
+    default_download_dir,
+    default_output_dir,
+    load_settings,
+    save_settings,
+)
 from clipnote_ai.utils import resource_path
 
 
@@ -152,6 +159,7 @@ class ClipNoteApp(ctk.CTk):
 
         self._configure_typography()
         self._build_ui()
+        self._ensure_user_folders()
         self.after(120, self._drain_events)
         self.protocol("WM_DELETE_WINDOW", self._on_close)
 
@@ -574,6 +582,13 @@ class ClipNoteApp(ctk.CTk):
             self.file_var.set(path)
             self.source_type.set(SOURCE_FILE_MODE)
             self._refresh_source_mode()
+
+    def _ensure_user_folders(self) -> None:
+        for folder in (Path(self.output_dir_var.get()).expanduser(), default_download_dir()):
+            try:
+                folder.mkdir(parents=True, exist_ok=True)
+            except OSError:
+                pass
 
     def _choose_output_dir(self) -> None:
         path = filedialog.askdirectory(title="출력 폴더 선택")

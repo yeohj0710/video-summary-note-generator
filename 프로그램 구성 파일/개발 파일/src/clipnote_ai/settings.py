@@ -33,10 +33,18 @@ def app_data_dir() -> Path:
     return Path.home() / f".{APP_NAME.lower()}"
 
 
-def default_output_dir() -> Path:
+def app_root_dir() -> Path:
     if getattr(sys, "frozen", False):
-        return Path(sys.executable).resolve().parent / "생성된 노트"
-    return Path.cwd() / "생성된 노트"
+        return Path(sys.executable).resolve().parent
+    return Path.cwd()
+
+
+def default_output_dir() -> Path:
+    return app_root_dir() / "생성된 노트"
+
+
+def default_download_dir() -> Path:
+    return app_root_dir() / "다운로드한 동영상"
 
 
 def settings_path() -> Path:

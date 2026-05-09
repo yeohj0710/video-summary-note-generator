@@ -3,7 +3,6 @@
 import html
 import json
 import os
-import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -12,7 +11,7 @@ from urllib.parse import urlparse
 
 from openai import OpenAI
 
-from clipnote_ai.settings import AppSettings
+from clipnote_ai.settings import AppSettings, default_download_dir
 from clipnote_ai.utils import (
     clamp_seconds,
     extract_json_object,
@@ -146,11 +145,7 @@ class VideoNotePipeline:
         )
 
     def _downloaded_videos_dir(self) -> Path:
-        if getattr(sys, "frozen", False):
-            root = Path(sys.executable).resolve().parent
-        else:
-            root = Path.cwd()
-        return root / "다운로드한 동영상"
+        return default_download_dir()
 
     def _download_video(self, url: str, started: str) -> tuple[Path, str]:
         downloads_dir = self._downloaded_videos_dir()
