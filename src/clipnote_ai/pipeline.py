@@ -56,6 +56,7 @@ class PipelineResult:
     output_dir: Path
     markdown_path: Path
     html_path: Path
+    pdf_path: Path
     transcript_path: Path
     title: str
     scene_count: int
@@ -130,13 +131,15 @@ class VideoNotePipeline:
 
         markdown_path = self._render_markdown(job_dir, source_title, source_label, duration, chunks, scenes, analysis)
         html_path = self._render_html(job_dir, source_title, source_label, duration, scenes, analysis)
+        pdf_path = self._render_pdf(job_dir, source_title, source_label, duration, chunks, scenes, analysis)
         self._write_metadata(job_dir, source_title, source_label, duration, scenes, analysis)
 
-        self.progress("완료", 1.0, f"결과 생성 완료: {markdown_path.name}")
+        self.progress("완료", 1.0, f"결과 생성 완료: {pdf_path.name}")
         return PipelineResult(
             output_dir=job_dir,
             markdown_path=markdown_path,
             html_path=html_path,
+            pdf_path=pdf_path,
             transcript_path=transcript_path,
             title=str(analysis.get("title") or source_title),
             scene_count=len(scenes),
@@ -660,6 +663,196 @@ class VideoNotePipeline:
 """
         html_path.write_text(document, encoding="utf-8")
         return html_path
+
+    def _register_pdf_fonts(self) -> tuple[str, str]:
+        from reportlab.pdfbase import pdfmetrics
+        from reportlab.pdfbase.ttfonts import TTFont
+
+        windows = Path(os.getenv("WINDIR", r"C:\Windows")) / "Fonts"
+        regular_candidates = [
+            windows / "malgun.ttf",
+            windows / "NanumGothic.ttf",
+            Path(r"C:\Windows\Fonts\malgun.ttf"),
+        ]
+        bold_candidates = [
+            windows / "malgunbd.ttf",
+            windows / "NanumGothicBold.ttf",
+            Path(r"C:\Windows\Fonts\malgunbd.ttf"),
+        ]
+
+        regular_path = next((path for path in regular_candidates if path.exists()), None)
+        bold_path = next((path for path in bold_candidates if path.exists()), regular_path)
+        if not regular_path:
+            return "Helvetica", "Helvetica-Bold"
+
+        if "ClipNoteKorean" not in pdfmetrics.getRegisteredFontNames():
+            pdfmetrics.registerFont(TTFont("ClipNoteKorean", str(regular_path)))
+        if bold_path and "ClipNoteKorean-Bold" not in pdfmetrics.getRegisteredFontNames():
+            pdfmetrics.registerFont(TTFont("ClipNoteKorean-Bold", str(bold_path)))
+        return "ClipNoteKorean", "ClipNoteKorean-Bold" if bold_path else "ClipNoteKorean"
+
+    def _pdf_image(self, image_path: Path, max_width: float, max_height: float):
+        from PIL import Image as PILImage
+        from reportlab.platypus import Image
+
+        with PILImage.open(image_path) as image:
+            width, height = image.size
+        if width <= 0 or height <= 0:
+            return None
+        scale = min(max_width / width, max_height / height, 1.0)
+        return Image(str(image_path), width=width * scale, height=height * scale)
+
+    def _pdf_paragraph_text(self, value: object) -> str:
+        text = str(value or "").strip()
+        if not text:
+            return ""
+        return html.escape(text).replace("\n", "<br/>")
+
+    def _render_pdf(
+        self,
+        job_dir: Path,
+        source_title: str,
+        source_label: str,
+        duration: float,
+        chunks: list[TranscriptChunk],
+        scenes: list[Scene],
+        analysis: dict[str, object],
+    ) -> Path:
+        self.progress("PDF 생성 중", 0.94, "주요 화면과 스크립트를 PDF로 정리하고 있습니다.")
+
+        from reportlab.lib import colors
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib.styles import ParagraphStyle
+        from reportlab.lib.units import mm
+        from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+
+        pdf_path = job_dir / "summary.pdf"
+        regular_font, bold_font = self._register_pdf_fonts()
+        title = str(analysis.get("title") or source_title)
+        bullets = analysis.get("summary_bullets") if isinstance(analysis.get("summary_bullets"), list) else []
+
+        doc = SimpleDocTemplate(
+            str(pdf_path),
+            pagesize=A4,
+            rightMargin=18 * mm,
+            leftMargin=18 * mm,
+            topMargin=17 * mm,
+            bottomMargin=17 * mm,
+            title=title,
+            author="ClipNote AI",
+        )
+        width, _height = A4
+        content_width = width - doc.leftMargin - doc.rightMargin
+
+        styles = {
+            "title": ParagraphStyle(
+                "ClipNoteTitle",
+                fontName=bold_font,
+                fontSize=22,
+                leading=30,
+                textColor=colors.HexColor("#142033"),
+                spaceAfter=10,
+            ),
+            "h2": ParagraphStyle(
+                "ClipNoteH2",
+                fontName=bold_font,
+                fontSize=15,
+                leading=21,
+                textColor=colors.HexColor("#142033"),
+                spaceBefore=14,
+                spaceAfter=8,
+            ),
+            "h3": ParagraphStyle(
+                "ClipNoteH3",
+                fontName=bold_font,
+                fontSize=12,
+                leading=18,
+                textColor=colors.HexColor("#1677ff"),
+                spaceBefore=8,
+                spaceAfter=5,
+            ),
+            "body": ParagraphStyle(
+                "ClipNoteBody",
+                fontName=regular_font,
+                fontSize=10.2,
+                leading=16,
+                textColor=colors.HexColor("#17202a"),
+                spaceAfter=7,
+            ),
+            "muted": ParagraphStyle(
+                "ClipNoteMuted",
+                fontName=regular_font,
+                fontSize=9,
+                leading=14,
+                textColor=colors.HexColor("#5f6b7a"),
+                spaceAfter=6,
+            ),
+            "quote": ParagraphStyle(
+                "ClipNoteQuote",
+                fontName=regular_font,
+                fontSize=9.5,
+                leading=15,
+                leftIndent=8,
+                borderColor=colors.HexColor("#1677ff"),
+                borderWidth=0,
+                borderPadding=6,
+                backColor=colors.HexColor("#eef6ff"),
+                textColor=colors.HexColor("#263445"),
+                spaceAfter=7,
+            ),
+        }
+
+        story = [
+            Paragraph(self._pdf_paragraph_text(title), styles["title"]),
+            Paragraph(
+                self._pdf_paragraph_text(
+                    f"원본: {source_label}\n영상 길이: {format_timecode(duration)}\n주요 장면: {len(scenes)}개"
+                ),
+                styles["muted"],
+            ),
+            Spacer(1, 5 * mm),
+            Paragraph("한 줄 요약", styles["h2"]),
+            Paragraph(self._pdf_paragraph_text(analysis.get("one_line_summary") or "요약이 비어 있습니다."), styles["body"]),
+        ]
+
+        if bullets:
+            story.append(Paragraph("핵심 요약", styles["h2"]))
+            for bullet in bullets:
+                story.append(Paragraph(f"• {self._pdf_paragraph_text(bullet)}", styles["body"]))
+
+        story.append(Paragraph("주요 화면과 스크립트", styles["h2"]))
+        for scene in scenes:
+            story.append(Paragraph(f"{scene.index:02d}. {scene.timecode} · {self._pdf_paragraph_text(scene.heading)}", styles["h3"]))
+            if scene.image_path and scene.image_path.exists():
+                image = self._pdf_image(scene.image_path, content_width, 92 * mm)
+                if image:
+                    story.append(image)
+                    story.append(Spacer(1, 3 * mm))
+            if scene.summary:
+                story.append(Paragraph(self._pdf_paragraph_text(scene.summary), styles["body"]))
+            if scene.quote:
+                story.append(Paragraph(self._pdf_paragraph_text(f"대표 발화: {scene.quote}"), styles["quote"]))
+            if scene.why:
+                story.append(Paragraph(self._pdf_paragraph_text(f"선정 이유: {scene.why}"), styles["muted"]))
+
+        story.append(PageBreak())
+        story.append(Paragraph("전체 스크립트", styles["h2"]))
+        for chunk in chunks:
+            chunk_title = f"{format_timecode(chunk.start)} - {format_timecode(chunk.end)}"
+            text = (chunk.clean_text or chunk.raw_text).strip()
+            story.append(Paragraph(self._pdf_paragraph_text(chunk_title), styles["h3"]))
+            if text:
+                story.append(Paragraph(self._pdf_paragraph_text(text), styles["body"]))
+
+        def draw_footer(canvas, document):
+            canvas.saveState()
+            canvas.setFont(regular_font, 8)
+            canvas.setFillColor(colors.HexColor("#7a8797"))
+            canvas.drawRightString(width - doc.rightMargin, 9 * mm, f"ClipNote AI · {document.page}")
+            canvas.restoreState()
+
+        doc.build(story, onFirstPage=draw_footer, onLaterPages=draw_footer)
+        return pdf_path
 
     def _write_metadata(
         self,

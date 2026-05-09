@@ -10,7 +10,7 @@
 - 맞춤법, 띄어쓰기, 문장부호, 문맥상 어색한 부분 정리
 - 영상 길이와 내용 밀도를 기준으로 주요 장면 수 자동 결정
 - 주요 장면 시점의 화면 캡처
-- `summary.md`, `summary.html`, `transcript.txt`, `metadata.json`, `frames/` 출력
+- `summary.pdf`, `summary.html`, `summary.md`, `transcript.txt`, `metadata.json`, `frames/` 출력
 - OpenAI API 키 입력 및 선택 저장
 
 ## 출력 구조
@@ -22,6 +22,7 @@ outputs/
   20260509_132000_영상제목/
     summary.md
     summary.html
+    summary.pdf
     transcript.txt
     metadata.json
     frames/
@@ -29,7 +30,7 @@ outputs/
       scene_02_00-00-28.jpg
 ```
 
-Notion에는 `summary.md`를 가져오거나, `summary.html`을 브라우저로 열어 필요한 부분을 복사해서 붙여 넣으면 됩니다.
+다른 사람에게 전달할 때는 `summary.pdf`가 가장 편합니다. Notion에는 `summary.md`를 가져오거나, `summary.html`을 브라우저로 열어 필요한 부분을 복사해서 붙여 넣으면 됩니다.
 
 ## 배포 파일
 

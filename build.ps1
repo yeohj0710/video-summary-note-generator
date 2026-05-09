@@ -28,6 +28,7 @@ if (Test-Path "release") {
     --windowed `
     --name "ClipNoteAI" `
     --collect-all customtkinter `
+    --collect-all reportlab `
     --collect-binaries imageio_ffmpeg `
     --hidden-import yt_dlp `
     "src\clipnote_ai\__main__.py"
