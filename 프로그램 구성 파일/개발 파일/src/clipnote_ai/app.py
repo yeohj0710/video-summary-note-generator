@@ -138,6 +138,7 @@ class ClipNoteApp(ctk.CTk):
         self.url_var = tk.StringVar()
         self.file_var = tk.StringVar()
         self.api_key_var = tk.StringVar(value=self.settings.api_key)
+        self.api_key_locked = bool(self.settings.api_key.strip())
         self.save_api_key_var = tk.BooleanVar(value=self.settings.save_api_key)
         self.transcription_model_var = tk.StringVar(value=self.settings.transcription_model)
         self.text_model_var = tk.StringVar(value=self.settings.text_model)
@@ -376,17 +377,29 @@ class ClipNoteApp(ctk.CTk):
         ctk.CTkLabel(card, text="API 키", font=self.font_label, text_color="#334155").grid(
             row=1, column=0, padx=22, pady=(0, 7), sticky="w"
         )
-        ctk.CTkEntry(
-            card,
+
+        api_key_row = ctk.CTkFrame(card, fg_color="transparent")
+        api_key_row.grid(row=2, column=0, padx=22, pady=(0, 12), sticky="ew")
+        api_key_row.grid_columnconfigure(0, weight=1)
+        self.api_key_entry = ctk.CTkEntry(
+            api_key_row,
             textvariable=self.api_key_var,
-            show="*",
             placeholder_text="sk-...",
             height=38,
             font=self.font_input,
             corner_radius=7,
-        ).grid(
-            row=2, column=0, padx=22, pady=(0, 12), sticky="ew"
         )
+        self.api_key_entry.grid(row=0, column=0, sticky="ew", padx=(0, 10))
+        self.api_key_lock_button = ctk.CTkButton(
+            api_key_row,
+            text="설정",
+            width=76,
+            height=38,
+            corner_radius=7,
+            font=self.font_button,
+            command=self._toggle_api_key_lock,
+        )
+        self.api_key_lock_button.grid(row=0, column=1)
         ctk.CTkCheckBox(
             card,
             text="이 PC에 API 키 저장",
@@ -423,6 +436,7 @@ class ClipNoteApp(ctk.CTk):
             dropdown_font=self.font_input,
             corner_radius=7,
         ).grid(row=1, column=1, sticky="ew", pady=(7, 0), padx=(12, 0))
+        self._refresh_api_key_lock()
         return card
 
     def _output_card(self, parent: ctk.CTkBaseClass) -> ctk.CTkFrame:
@@ -565,6 +579,33 @@ class ClipNoteApp(ctk.CTk):
         path = filedialog.askdirectory(title="출력 폴더 선택")
         if path:
             self.output_dir_var.set(path)
+
+    def _toggle_api_key_lock(self) -> None:
+        if self.api_key_locked:
+            self.api_key_locked = False
+            self._refresh_api_key_lock()
+            self.api_key_entry.focus_set()
+            return
+
+        if not self.api_key_var.get().strip():
+            messagebox.showwarning("API 키 필요", "OpenAI API 키를 입력한 뒤 설정해 주세요.")
+            self.api_key_entry.focus_set()
+            return
+
+        self.api_key_locked = True
+        self._collect_settings()
+        self._refresh_api_key_lock()
+
+    def _refresh_api_key_lock(self) -> None:
+        if not hasattr(self, "api_key_entry") or not hasattr(self, "api_key_lock_button"):
+            return
+
+        if self.api_key_locked:
+            self.api_key_entry.configure(state="disabled", fg_color="#f8fafc", border_color="#cbd5e1")
+            self.api_key_lock_button.configure(text="수정", fg_color="#334155", hover_color="#1e293b")
+        else:
+            self.api_key_entry.configure(state="normal", fg_color="#ffffff", border_color="#94a3b8")
+            self.api_key_lock_button.configure(text="설정", fg_color="#3b8ed0", hover_color="#36719f")
 
     def _collect_settings(self) -> AppSettings:
         def as_int(value: str, fallback: int, low: int, high: int) -> int:
