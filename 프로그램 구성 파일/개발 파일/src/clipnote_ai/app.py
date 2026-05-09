@@ -152,6 +152,9 @@ class ClipNoteApp(ctk.CTk):
         self.worker_thread: threading.Thread | None = None
         self.events: queue.Queue[tuple[str, object]] = queue.Queue()
         self.latest_result: PipelineResult | None = None
+        self.busy_animation_after_id: str | None = None
+        self.busy_animation_step = 0
+        self.busy_frames = ("◐", "◓", "◑", "◒")
 
         self.source_type = tk.StringVar(value=SOURCE_URL_MODE)
         self.url_var = tk.StringVar()
@@ -493,48 +496,55 @@ class ClipNoteApp(ctk.CTk):
             scene_box,
             text="장면 수 자동 결정",
             variable=self.auto_scene_var,
+            command=self._refresh_scene_count_mode,
             font=self.font_body,
             checkbox_width=24,
             checkbox_height=24,
         ).grid(row=0, column=0, padx=16, pady=(16, 10), sticky="w")
 
-        ctk.CTkLabel(scene_box, text="직접 지정", font=self.font_label, text_color="#475569").grid(
+        self.fixed_scene_label = ctk.CTkLabel(scene_box, text="직접 지정", font=self.font_label, text_color="#475569")
+        self.fixed_scene_label.grid(
             row=1, column=0, padx=16, pady=(0, 7), sticky="w"
         )
-        ctk.CTkEntry(
+        self.fixed_scene_entry = ctk.CTkEntry(
             scene_box,
             textvariable=self.fixed_scene_var,
             width=96,
             height=36,
             font=self.font_input,
             corner_radius=7,
-        ).grid(
+        )
+        self.fixed_scene_entry.grid(
             row=2, column=0, padx=16, pady=(0, 16), sticky="w"
         )
-        ctk.CTkLabel(scene_box, text="자동 최소", font=self.font_label, text_color="#475569").grid(
+        self.min_scene_label = ctk.CTkLabel(scene_box, text="자동 최소", font=self.font_label, text_color="#475569")
+        self.min_scene_label.grid(
             row=1, column=1, padx=16, pady=(0, 7), sticky="w"
         )
-        ctk.CTkEntry(
+        self.min_scene_entry = ctk.CTkEntry(
             scene_box,
             textvariable=self.min_scene_var,
             width=96,
             height=36,
             font=self.font_input,
             corner_radius=7,
-        ).grid(
+        )
+        self.min_scene_entry.grid(
             row=2, column=1, padx=16, pady=(0, 16), sticky="w"
         )
-        ctk.CTkLabel(scene_box, text="자동 최대", font=self.font_label, text_color="#475569").grid(
+        self.max_scene_label = ctk.CTkLabel(scene_box, text="자동 최대", font=self.font_label, text_color="#475569")
+        self.max_scene_label.grid(
             row=1, column=2, padx=16, pady=(0, 7), sticky="w"
         )
-        ctk.CTkEntry(
+        self.max_scene_entry = ctk.CTkEntry(
             scene_box,
             textvariable=self.max_scene_var,
             width=96,
             height=36,
             font=self.font_input,
             corner_radius=7,
-        ).grid(
+        )
+        self.max_scene_entry.grid(
             row=2, column=2, padx=16, pady=(0, 16), sticky="w"
         )
 
@@ -569,15 +579,32 @@ class ClipNoteApp(ctk.CTk):
             command=self._open_latest_output,
         )
         self.open_output_button.grid(row=0, column=1, sticky="e")
+        self._refresh_scene_count_mode()
         return card
 
     def _status_panel(self, parent: ctk.CTkFrame) -> None:
         ctk.CTkLabel(parent, text="진행 상황", font=self.font_section_title, text_color="#111827").grid(
             row=0, column=0, padx=22, pady=(22, 10), sticky="w"
         )
-        self.status_label = ctk.CTkLabel(parent, text="대기 중", text_color="#334155", font=self.font_body)
-        self.status_label.grid(row=1, column=0, padx=22, pady=(0, 10), sticky="w")
-        self.progress_bar = ctk.CTkProgressBar(parent, height=10, corner_radius=5)
+        status_row = ctk.CTkFrame(parent, fg_color="transparent")
+        status_row.grid(row=1, column=0, padx=22, pady=(0, 10), sticky="ew")
+        status_row.grid_columnconfigure(1, weight=1)
+        self.activity_label = ctk.CTkLabel(
+            status_row,
+            text="",
+            width=24,
+            font=ctk.CTkFont(family=self.font_family, size=18, weight="bold"),
+            text_color=self.primary_color,
+        )
+        self.activity_label.grid(row=0, column=0, padx=(0, 6), sticky="w")
+        self.status_label = ctk.CTkLabel(status_row, text="대기 중", text_color="#334155", font=self.font_body)
+        self.status_label.grid(row=0, column=1, sticky="w")
+        self.progress_bar = ctk.CTkProgressBar(
+            parent,
+            height=10,
+            corner_radius=5,
+            progress_color=self.primary_color,
+        )
         self.progress_bar.grid(row=2, column=0, padx=22, pady=(0, 18), sticky="ew")
         self.progress_bar.set(0)
         self.log_box = ctk.CTkTextbox(
@@ -655,21 +682,74 @@ class ClipNoteApp(ctk.CTk):
                 text_color="#ffffff",
             )
 
+    def _refresh_scene_count_mode(self) -> None:
+        if not hasattr(self, "fixed_scene_entry"):
+            return
+
+        auto = bool(self.auto_scene_var.get())
+        enabled_label = "#475569"
+        disabled_label = "#94a3b8"
+
+        def set_entry(entry: ctk.CTkEntry, label: ctk.CTkLabel, enabled: bool) -> None:
+            if enabled:
+                entry.configure(state="normal", fg_color="#ffffff", border_color="#94a3b8", text_color="#111827")
+                label.configure(text_color=enabled_label)
+            else:
+                entry.configure(state="disabled", fg_color="#edf2f7", border_color="#cbd5e1", text_color="#94a3b8")
+                label.configure(text_color=disabled_label)
+
+        set_entry(self.fixed_scene_entry, self.fixed_scene_label, not auto)
+        set_entry(self.min_scene_entry, self.min_scene_label, auto)
+        set_entry(self.max_scene_entry, self.max_scene_label, auto)
+
+    def _set_busy_animation(self, active: bool) -> None:
+        if active:
+            if self.busy_animation_after_id is None:
+                self.busy_animation_step = 0
+                self._animate_busy()
+            return
+
+        if self.busy_animation_after_id is not None:
+            try:
+                self.after_cancel(self.busy_animation_after_id)
+            except tk.TclError:
+                pass
+            self.busy_animation_after_id = None
+        if hasattr(self, "activity_label"):
+            self.activity_label.configure(text="")
+
+    def _animate_busy(self) -> None:
+        frame = self.busy_frames[self.busy_animation_step % len(self.busy_frames)]
+        dot_count = (self.busy_animation_step % 3) + 1
+        dots = "." * dot_count
+
+        if hasattr(self, "activity_label"):
+            self.activity_label.configure(text=frame)
+        if hasattr(self, "start_button"):
+            self.start_button.configure(text=f"{frame} 처리 중{dots}")
+
+        self.busy_animation_step += 1
+        self.busy_animation_after_id = self.after(160, self._animate_busy)
+
     def _set_start_button_busy(self, busy: bool) -> None:
         if busy:
             self.start_button.configure(
                 state="disabled",
-                text="처리 중...",
-                fg_color=self.disabled_color,
-                hover_color=self.disabled_color,
+                text="◐ 처리 중.",
+                fg_color=self.primary_hover,
+                hover_color=self.primary_hover,
+                text_color_disabled="#ffffff",
             )
+            self._set_busy_animation(True)
         else:
+            self._set_busy_animation(False)
             self.start_button.configure(
                 state="normal",
                 text="노트 만들기",
                 fg_color=self.primary_color,
                 hover_color=self.primary_hover,
                 text_color="#ffffff",
+                text_color_disabled=self.disabled_text,
             )
 
     def _set_output_button_enabled(self, enabled: bool) -> None:
@@ -820,6 +900,7 @@ class ClipNoteApp(ctk.CTk):
             webbrowser.open(path.as_uri())
 
     def _on_close(self) -> None:
+        self._set_busy_animation(False)
         self._collect_settings()
         self.destroy()
 
