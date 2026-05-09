@@ -26,6 +26,9 @@ from clipnote_ai.utils import (
 
 
 ProgressCallback = Callable[[str, float, str], None]
+USER_PDF_NAME = "요약 노트.pdf"
+USER_TRANSCRIPT_NAME = "전체 스크립트.txt"
+SUPPORT_DIR_NAME = "기타 파일"
 
 
 @dataclass
@@ -116,22 +119,25 @@ class VideoNotePipeline:
             if relative_video_path is not None:
                 video_path = job_dir / relative_video_path
 
+        support_dir = job_dir / SUPPORT_DIR_NAME
+        support_dir.mkdir(parents=True, exist_ok=True)
+
         duration = get_media_duration(video_path, self.ffmpeg)
         self.progress("영상 분석 중", 0.12, f"영상 길이: {format_timecode(duration)}")
 
-        chunks = self._extract_audio_chunks(video_path, job_dir, duration)
+        chunks = self._extract_audio_chunks(video_path, support_dir, duration)
         self._transcribe_chunks(chunks)
         self._clean_chunks(chunks)
 
         transcript_path = self._write_transcript(job_dir, chunks)
         analysis = self._analyze_scenes(source_title, source_label, duration, chunks)
         scenes = self._normalize_scenes(analysis, duration, chunks)
-        self._extract_scene_images(video_path, job_dir, scenes)
+        self._extract_scene_images(video_path, support_dir, scenes)
 
-        markdown_path = self._render_markdown(job_dir, source_title, source_label, duration, chunks, scenes, analysis)
-        html_path = self._render_html(job_dir, source_title, source_label, duration, scenes, analysis)
+        markdown_path = self._render_markdown(support_dir, source_title, source_label, duration, chunks, scenes, analysis)
+        html_path = self._render_html(support_dir, source_title, source_label, duration, scenes, analysis)
         pdf_path = self._render_pdf(job_dir, source_title, source_label, duration, chunks, scenes, analysis)
-        self._write_metadata(job_dir, source_title, source_label, duration, scenes, analysis)
+        self._write_metadata(support_dir, source_title, source_label, duration, scenes, analysis)
 
         self.progress("완료", 1.0, f"결과 생성 완료: {pdf_path.name}")
         return PipelineResult(
@@ -189,9 +195,9 @@ class VideoNotePipeline:
         self.progress("영상 다운로드 완료", 0.09, f"저장된 동영상: {downloaded}")
         return downloaded.resolve(), title
 
-    def _extract_audio_chunks(self, video_path: Path, job_dir: Path, duration: float) -> list[TranscriptChunk]:
+    def _extract_audio_chunks(self, video_path: Path, support_dir: Path, duration: float) -> list[TranscriptChunk]:
         self.progress("음성 추출 중", 0.18, "오디오를 전사용 작은 조각으로 나누고 있습니다.")
-        chunk_dir = job_dir / "audio_chunks"
+        chunk_dir = support_dir / "audio_chunks"
         chunk_dir.mkdir(parents=True, exist_ok=True)
         chunk_seconds = 480
         output_pattern = chunk_dir / "chunk_%03d.mp3"
@@ -332,7 +338,7 @@ class VideoNotePipeline:
         return completion.choices[0].message.content or ""
 
     def _write_transcript(self, job_dir: Path, chunks: list[TranscriptChunk]) -> Path:
-        transcript_path = job_dir / "transcript.txt"
+        transcript_path = job_dir / USER_TRANSCRIPT_NAME
         lines: list[str] = []
         for chunk in chunks:
             lines.append(f"[{format_timecode(chunk.start)} - {format_timecode(chunk.end)}]")
@@ -458,8 +464,8 @@ class VideoNotePipeline:
             scene.timecode = format_timecode(scene.seconds)
         return scenes
 
-    def _extract_scene_images(self, video_path: Path, job_dir: Path, scenes: list[Scene]) -> None:
-        frames_dir = job_dir / "frames"
+    def _extract_scene_images(self, video_path: Path, support_dir: Path, scenes: list[Scene]) -> None:
+        frames_dir = support_dir / "frames"
         frames_dir.mkdir(parents=True, exist_ok=True)
         total = len(scenes)
         for scene in scenes:
@@ -522,7 +528,7 @@ class VideoNotePipeline:
 
         lines.extend(["## 주요 장면", ""])
         for scene in scenes:
-            rel_image = scene.image_path.relative_to(job_dir).as_posix() if scene.image_path else ""
+            rel_image = scene.image_path.relative_to(markdown_path.parent).as_posix() if scene.image_path else ""
             lines.extend(
                 [
                     f"### {scene.index:02d}. {scene.timecode} · {scene.heading}",
@@ -562,7 +568,7 @@ class VideoNotePipeline:
         bullets = analysis.get("summary_bullets") if isinstance(analysis.get("summary_bullets"), list) else []
         scene_cards = []
         for scene in scenes:
-            rel_image = scene.image_path.relative_to(job_dir).as_posix() if scene.image_path else ""
+            rel_image = scene.image_path.relative_to(html_path.parent).as_posix() if scene.image_path else ""
             quote = f"<blockquote>{html.escape(scene.quote)}</blockquote>" if scene.quote else ""
             why = f"<p class='why'>선정 이유: {html.escape(scene.why)}</p>" if scene.why else ""
             scene_cards.append(
@@ -753,7 +759,7 @@ class VideoNotePipeline:
         from reportlab.lib.units import mm
         from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
-        pdf_path = job_dir / "summary.pdf"
+        pdf_path = job_dir / USER_PDF_NAME
         regular_font, bold_font = self._register_pdf_fonts()
         title = str(analysis.get("title") or source_title)
         bullets = analysis.get("summary_bullets") if isinstance(analysis.get("summary_bullets"), list) else []

@@ -33,7 +33,7 @@ video-summary-note-generator/
 - 맞춤법, 띄어쓰기, 문장부호, 문맥상 어색한 부분 정리
 - 영상 길이와 내용에 맞춘 주요 화면 개수 자동 결정
 - 주요 화면 시점의 이미지 캡처
-- `summary.pdf`, `summary.html`, `summary.md`, `transcript.txt`, `metadata.json`, `frames/` 출력
+- 최상단에는 `요약 노트.pdf`, `전체 스크립트.txt`, `기타 파일/`만 보이도록 출력
 - OpenAI API 키 입력 및 선택 저장
 
 ## 결과물 구조
@@ -43,17 +43,19 @@ video-summary-note-generator/
 ```text
 생성된 노트/
   20260509_132000_영상제목/
-    summary.pdf
-    summary.html
-    summary.md
-    transcript.txt
-    metadata.json
-    frames/
-      scene_01_00-00-12.jpg
-      scene_02_00-00-28.jpg
+    요약 노트.pdf
+    전체 스크립트.txt
+    기타 파일/
+      summary.html
+      summary.md
+      metadata.json
+      frames/
+        scene_01_00-00-12.jpg
+        scene_02_00-00-28.jpg
+      audio_chunks/
 ```
 
-다른 사람에게 전달할 때는 `summary.pdf`가 가장 편합니다. Notion에 정리하고 싶으면 `summary.md`를 가져오거나, `summary.html`을 브라우저로 열어 필요한 부분을 복사해 붙여 넣으면 됩니다.
+다른 사람에게 전달할 때는 `요약 노트.pdf`가 가장 편합니다. Notion에 정리하고 싶으면 PDF를 바로 첨부하거나, 필요할 때만 `기타 파일` 안의 `summary.md`를 가져오면 됩니다.
 
 ## 개발 실행
 
