@@ -21,6 +21,101 @@ SOURCE_URL_MODE = "링크로 가져오기"
 SOURCE_FILE_MODE = "내 컴퓨터 파일"
 
 
+class SmoothScrollableFrame(ctk.CTkScrollableFrame):
+    scroll_pixels_per_notch = 280
+    scroll_frame_delay_ms = 8
+    scroll_ease = 0.32
+
+    def __init__(self, *args: object, **kwargs: object) -> None:
+        self._smooth_scroll_target_px: float | None = None
+        self._smooth_scroll_after_id: str | None = None
+        super().__init__(*args, **kwargs)
+
+    def destroy(self) -> None:
+        if self._smooth_scroll_after_id is not None:
+            try:
+                self.after_cancel(self._smooth_scroll_after_id)
+            except tk.TclError:
+                pass
+            self._smooth_scroll_after_id = None
+        super().destroy()
+
+    def _mouse_wheel_all(self, event: tk.Event) -> str | None:
+        if not self.check_if_master_is_canvas(event.widget):
+            return None
+        if self._shift_pressed:
+            return super()._mouse_wheel_all(event)
+        if self._parent_canvas.yview() == (0.0, 1.0):
+            return "break"
+
+        notches = self._wheel_notches(event)
+        if notches == 0:
+            return "break"
+
+        self._smooth_scroll_by(-notches * self.scroll_pixels_per_notch)
+        return "break"
+
+    def _wheel_notches(self, event: tk.Event) -> float:
+        delta = getattr(event, "delta", 0)
+        if delta:
+            if sys.platform.startswith("win"):
+                return float(delta) / 120
+            return float(delta)
+        number = getattr(event, "num", None)
+        if number == 4:
+            return 1.0
+        if number == 5:
+            return -1.0
+        return 0.0
+
+    def _scroll_metrics(self) -> tuple[float, float]:
+        self._parent_canvas.update_idletasks()
+        bbox = self._parent_canvas.bbox("all")
+        if bbox is None:
+            return 0.0, 0.0
+        content_height = max(1, bbox[3] - bbox[1])
+        viewport_height = max(1, self._parent_canvas.winfo_height())
+        return float(max(0, content_height - viewport_height)), self._parent_canvas.yview()[0]
+
+    def _smooth_scroll_by(self, pixels: float) -> None:
+        scrollable_px, current_fraction = self._scroll_metrics()
+        if scrollable_px <= 0:
+            return
+
+        current_px = current_fraction * scrollable_px
+        base_px = self._smooth_scroll_target_px if self._smooth_scroll_target_px is not None else current_px
+        self._smooth_scroll_target_px = max(0.0, min(scrollable_px, base_px + pixels))
+
+        if self._smooth_scroll_after_id is None:
+            self._animate_smooth_scroll()
+
+    def _animate_smooth_scroll(self) -> None:
+        if self._smooth_scroll_target_px is None:
+            self._smooth_scroll_after_id = None
+            return
+
+        scrollable_px, current_fraction = self._scroll_metrics()
+        if scrollable_px <= 0:
+            self._smooth_scroll_target_px = None
+            self._smooth_scroll_after_id = None
+            return
+
+        current_px = current_fraction * scrollable_px
+        diff = self._smooth_scroll_target_px - current_px
+        if abs(diff) < 1.0:
+            self._parent_canvas.yview_moveto(self._smooth_scroll_target_px / scrollable_px)
+            self._smooth_scroll_target_px = None
+            self._smooth_scroll_after_id = None
+            return
+
+        step = diff * self.scroll_ease
+        if abs(step) < 1.0:
+            step = 1.0 if diff > 0 else -1.0
+        next_px = max(0.0, min(scrollable_px, current_px + step))
+        self._parent_canvas.yview_moveto(next_px / scrollable_px)
+        self._smooth_scroll_after_id = self.after(self.scroll_frame_delay_ms, self._animate_smooth_scroll)
+
+
 class ClipNoteApp(ctk.CTk):
     def __init__(self) -> None:
         super().__init__()
@@ -139,7 +234,12 @@ class ClipNoteApp(ctk.CTk):
         body.grid_columnconfigure(1, weight=2)
         body.grid_rowconfigure(0, weight=1)
 
-        left = ctk.CTkScrollableFrame(body, fg_color="#edf1f6")
+        left = SmoothScrollableFrame(
+            body,
+            fg_color="#edf1f6",
+            scrollbar_button_color="#94a3b8",
+            scrollbar_button_hover_color="#64748b",
+        )
         left.grid(row=0, column=0, sticky="nsew", padx=(24, 12), pady=24)
         left.grid_columnconfigure(0, weight=1)
 
