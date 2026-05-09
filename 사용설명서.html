@@ -1,0 +1,677 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ClipNote AI 사용설명서</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f5f7fb;
+      --paper: #ffffff;
+      --ink: #142033;
+      --muted: #5d6b7c;
+      --line: #d9e1ec;
+      --blue: #1677ff;
+      --green: #0f8f62;
+      --orange: #b76a00;
+      --red: #c73636;
+      --code: #0f172a;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+      line-height: 1.7;
+      letter-spacing: 0;
+    }
+
+    a {
+      color: var(--blue);
+    }
+
+    .page {
+      width: min(1080px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 32px 0 72px;
+    }
+
+    header {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 30px;
+      margin-bottom: 18px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 36px;
+      line-height: 1.18;
+      letter-spacing: 0;
+    }
+
+    .lead {
+      margin: 0;
+      color: var(--muted);
+      font-size: 18px;
+    }
+
+    .toc,
+    section {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 24px;
+      margin: 16px 0;
+    }
+
+    h2 {
+      margin: 0 0 14px;
+      font-size: 25px;
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 24px 0 8px;
+      font-size: 19px;
+      line-height: 1.35;
+      letter-spacing: 0;
+    }
+
+    p {
+      margin: 8px 0;
+    }
+
+    ul,
+    ol {
+      margin: 10px 0 0;
+      padding-left: 24px;
+    }
+
+    li {
+      margin: 6px 0;
+    }
+
+    .toc ol {
+      columns: 2;
+      column-gap: 32px;
+    }
+
+    .notice {
+      border-left: 5px solid var(--blue);
+      background: #eef6ff;
+      padding: 14px 16px;
+      margin: 14px 0;
+      border-radius: 6px;
+    }
+
+    .warning {
+      border-left-color: var(--orange);
+      background: #fff7e8;
+    }
+
+    .danger {
+      border-left-color: var(--red);
+      background: #fff0f0;
+    }
+
+    .success {
+      border-left-color: var(--green);
+      background: #ecfbf5;
+    }
+
+    .step {
+      display: grid;
+      grid-template-columns: 42px 1fr;
+      gap: 14px;
+      align-items: start;
+      padding: 16px 0;
+      border-top: 1px solid var(--line);
+    }
+
+    .step:first-of-type {
+      border-top: 0;
+    }
+
+    .num {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--blue);
+      color: white;
+      font-weight: 700;
+    }
+
+    .label {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #eef2f7;
+      color: #334155;
+      font-size: 13px;
+      font-weight: 700;
+      margin-right: 6px;
+      white-space: nowrap;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+      overflow: hidden;
+      border-radius: 8px;
+    }
+
+    th,
+    td {
+      border: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+      padding: 11px 12px;
+    }
+
+    th {
+      background: #f1f5f9;
+      font-weight: 700;
+    }
+
+    code,
+    .path {
+      font-family: Consolas, "Segoe UI Mono", monospace;
+      background: #eef2f7;
+      padding: 2px 6px;
+      border-radius: 5px;
+      color: #111827;
+    }
+
+    pre {
+      background: var(--code);
+      color: #e5e7eb;
+      padding: 16px;
+      border-radius: 8px;
+      overflow-x: auto;
+      line-height: 1.55;
+    }
+
+    .small {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .checklist li {
+      list-style: none;
+      position: relative;
+      margin-left: 0;
+    }
+
+    .checklist li::before {
+      content: "✓";
+      color: var(--green);
+      font-weight: 800;
+      margin-right: 8px;
+    }
+
+    footer {
+      color: var(--muted);
+      text-align: center;
+      margin-top: 32px;
+      font-size: 14px;
+    }
+
+    @media (max-width: 760px) {
+      .page {
+        width: min(100vw - 20px, 1080px);
+        padding-top: 12px;
+      }
+
+      header,
+      .toc,
+      section {
+        padding: 18px;
+      }
+
+      h1 {
+        font-size: 29px;
+      }
+
+      .lead {
+        font-size: 16px;
+      }
+
+      .toc ol {
+        columns: 1;
+      }
+
+      .step {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header>
+      <h1>ClipNote AI 사용설명서</h1>
+      <p class="lead">영상을 넣으면 주요 장면 이미지와 한국어 요약 노트를 만들어 주는 프로그램입니다. 이 문서는 처음 쓰는 분도 그대로 따라 할 수 있게 순서대로 설명합니다.</p>
+    </header>
+
+    <nav class="toc" aria-label="목차">
+      <h2>목차</h2>
+      <ol>
+        <li><a href="#what">이 프로그램으로 할 수 있는 일</a></li>
+        <li><a href="#before">사용 전 준비물</a></li>
+        <li><a href="#quickstart">가장 빠른 사용 순서</a></li>
+        <li><a href="#screen">화면별 설명</a></li>
+        <li><a href="#url">유튜브 또는 릴스 링크 사용법</a></li>
+        <li><a href="#file">내 컴퓨터 동영상 사용법</a></li>
+        <li><a href="#api">OpenAI API 키 입력법</a></li>
+        <li><a href="#scene">주요 장면 수 설정법</a></li>
+        <li><a href="#outputs">결과 파일 보는 법</a></li>
+        <li><a href="#notion">Notion에 옮기는 법</a></li>
+        <li><a href="#cost">비용과 처리 시간</a></li>
+        <li><a href="#troubleshooting">문제가 생겼을 때</a></li>
+      </ol>
+    </nav>
+
+    <section id="what">
+      <h2>1. 이 프로그램으로 할 수 있는 일</h2>
+      <p>ClipNote AI는 영상 하나를 넣으면 아래 작업을 자동으로 처리합니다.</p>
+      <ul class="checklist">
+        <li>유튜브 또는 공개 릴스 링크에서 영상을 다운로드합니다.</li>
+        <li>내 컴퓨터에 있는 동영상 파일을 직접 불러옵니다.</li>
+        <li>영상의 음성을 한국어 텍스트로 전사합니다.</li>
+        <li>전사된 문장을 맞춤법, 띄어쓰기, 문장부호 중심으로 다듬습니다.</li>
+        <li>영상에서 중요한 내용이 나오는 시점을 고릅니다.</li>
+        <li>그 시점의 화면 이미지를 저장합니다.</li>
+        <li>요약, 주요 장면, 전체 전사문이 들어간 결과 파일을 만듭니다.</li>
+      </ul>
+      <div class="notice">
+        <strong>쉽게 말하면:</strong> 영상을 보고 직접 캡처하고 받아 적는 일을 프로그램이 대신 해 줍니다.
+      </div>
+    </section>
+
+    <section id="before">
+      <h2>2. 사용 전 준비물</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>준비물</th>
+            <th>설명</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>ClipNoteAI.exe</td>
+            <td>프로그램 실행 파일입니다. 압축을 푼 뒤 더블클릭해서 실행합니다.</td>
+          </tr>
+          <tr>
+            <td>OpenAI API 키</td>
+            <td>음성 전사와 요약에 필요합니다. 프로그램 화면의 API 키 칸에 붙여 넣습니다.</td>
+          </tr>
+          <tr>
+            <td>영상 링크 또는 동영상 파일</td>
+            <td>유튜브 링크, 공개 릴스 링크, 또는 내 컴퓨터의 mp4/mov/mkv 같은 동영상 파일이 필요합니다.</td>
+          </tr>
+          <tr>
+            <td>인터넷 연결</td>
+            <td>링크 다운로드와 OpenAI API 호출에 필요합니다.</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="warning">
+        <strong>주의:</strong> OpenAI API 키는 개인 결제 계정과 연결될 수 있습니다. 다른 사람에게 공유하지 마세요.
+      </div>
+    </section>
+
+    <section id="quickstart">
+      <h2>3. 가장 빠른 사용 순서</h2>
+
+      <div class="step">
+        <div class="num">1</div>
+        <div>
+          <h3>프로그램 실행</h3>
+          <p>압축을 푼 폴더에서 <span class="path">ClipNoteAI.exe</span>를 더블클릭합니다.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="num">2</div>
+        <div>
+          <h3>영상 선택</h3>
+          <p>유튜브나 릴스 링크를 쓸 때는 <span class="label">URL로 가져오기</span>를 선택하고 링크를 붙여 넣습니다.</p>
+          <p>내 컴퓨터 파일을 쓸 때는 <span class="label">내 컴퓨터 파일</span>을 선택하고 <span class="label">파일 선택</span>을 누릅니다.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="num">3</div>
+        <div>
+          <h3>API 키 입력</h3>
+          <p><span class="label">API 키</span> 칸에 OpenAI API 키를 붙여 넣습니다.</p>
+          <p>개인 PC에서 매번 입력하기 귀찮다면 <span class="label">이 PC에 API 키 저장</span>을 체크합니다.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="num">4</div>
+        <div>
+          <h3>출력 폴더 확인</h3>
+          <p>기본값은 프로그램 폴더 안의 <span class="path">outputs</span> 폴더입니다. 바꾸고 싶으면 <span class="label">폴더 선택</span>을 누릅니다.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="num">5</div>
+        <div>
+          <h3>노트 만들기</h3>
+          <p><span class="label">노트 만들기</span> 버튼을 누르고 기다립니다. 완료되면 <span class="label">결과 폴더 열기</span> 버튼으로 결과를 확인합니다.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="screen">
+      <h2>4. 화면별 설명</h2>
+
+      <h3>1. 영상 선택</h3>
+      <p>어떤 영상을 노트로 만들지 고르는 곳입니다.</p>
+      <ul>
+        <li><strong>URL로 가져오기:</strong> 유튜브 또는 릴스 링크를 붙여 넣습니다.</li>
+        <li><strong>내 컴퓨터 파일:</strong> 컴퓨터에 저장된 동영상 파일을 선택합니다.</li>
+        <li><strong>브라우저 쿠키 사용:</strong> 로그인해야 볼 수 있는 링크를 다운로드해야 할 때 사용합니다. 공개 영상은 보통 꺼 두면 됩니다.</li>
+      </ul>
+
+      <h3>2. OpenAI 설정</h3>
+      <p>AI가 음성을 듣고 텍스트를 만들기 위해 필요한 설정입니다.</p>
+      <ul>
+        <li><strong>API 키:</strong> OpenAI API 키를 입력합니다.</li>
+        <li><strong>이 PC에 API 키 저장:</strong> 다음 실행 때도 키를 자동으로 불러옵니다.</li>
+        <li><strong>전사 모델:</strong> 음성을 텍스트로 바꾸는 모델입니다. 기본값을 추천합니다.</li>
+        <li><strong>문장/요약 모델:</strong> 전사문을 다듬고 주요 장면을 고르는 모델입니다. 기본값을 추천합니다.</li>
+      </ul>
+
+      <h3>3. 출력 설정</h3>
+      <p>결과 파일을 어디에 만들지, 주요 장면을 몇 개 만들지 정합니다.</p>
+      <ul>
+        <li><strong>출력 폴더:</strong> 결과가 저장될 위치입니다.</li>
+        <li><strong>장면 수 자동 결정:</strong> 영상 길이와 내용에 맞춰 AI가 장면 수를 정합니다.</li>
+        <li><strong>직접 지정:</strong> 자동 결정을 끄고 원하는 장면 수를 숫자로 입력합니다.</li>
+        <li><strong>자동 최소/최대:</strong> 자동으로 만들 때 너무 적거나 많아지지 않게 범위를 정합니다.</li>
+      </ul>
+
+      <h3>진행 상황</h3>
+      <p>오른쪽 영역에는 현재 처리 단계가 표시됩니다. 다운로드, 음성 추출, 전사, 문장 정리, 주요 장면 선택, 이미지 추출 순서로 진행됩니다.</p>
+    </section>
+
+    <section id="url">
+      <h2>5. 유튜브 또는 릴스 링크 사용법</h2>
+      <ol>
+        <li>프로그램에서 <span class="label">URL로 가져오기</span>를 선택합니다.</li>
+        <li>유튜브 또는 릴스 링크를 복사합니다.</li>
+        <li><span class="label">릴스 또는 유튜브 링크</span> 칸에 붙여 넣습니다.</li>
+        <li>API 키와 출력 폴더를 확인합니다.</li>
+        <li><span class="label">노트 만들기</span>를 누릅니다.</li>
+      </ol>
+
+      <div class="notice">
+        <strong>유튜브 예시:</strong> <span class="path">https://www.youtube.com/watch?v=...</span>
+      </div>
+
+      <div class="warning">
+        <strong>릴스가 실패할 때:</strong> 공개 영상이 아니거나 로그인이 필요한 영상일 수 있습니다. Chrome 또는 Edge에서 해당 영상을 볼 수 있는 상태로 로그인한 뒤, 프로그램의 <span class="label">브라우저 쿠키 사용</span>을 켜고 다시 시도해 보세요.
+      </div>
+    </section>
+
+    <section id="file">
+      <h2>6. 내 컴퓨터 동영상 사용법</h2>
+      <ol>
+        <li>프로그램에서 <span class="label">내 컴퓨터 파일</span>을 선택합니다.</li>
+        <li><span class="label">파일 선택</span> 버튼을 누릅니다.</li>
+        <li>분석할 동영상 파일을 선택합니다.</li>
+        <li>API 키와 출력 폴더를 확인합니다.</li>
+        <li><span class="label">노트 만들기</span>를 누릅니다.</li>
+      </ol>
+
+      <p>지원 가능성이 높은 파일 형식은 <span class="path">mp4</span>, <span class="path">mov</span>, <span class="path">mkv</span>, <span class="path">avi</span>, <span class="path">webm</span>입니다.</p>
+
+      <div class="danger">
+        <strong>오디오가 없는 영상:</strong> 영상에 음성 트랙이 없으면 전사할 내용이 없어 실패할 수 있습니다.
+      </div>
+    </section>
+
+    <section id="api">
+      <h2>7. OpenAI API 키 입력법</h2>
+      <p>이 프로그램은 OpenAI API를 사용합니다. ChatGPT 로그인만으로는 동작하지 않고, API 키가 필요합니다.</p>
+
+      <h3>API 키를 넣는 위치</h3>
+      <ol>
+        <li>프로그램 화면에서 <span class="label">OpenAI 설정</span> 영역을 찾습니다.</li>
+        <li><span class="label">API 키</span> 칸에 키를 붙여 넣습니다.</li>
+        <li>키는 보안을 위해 화면에서 점으로 표시됩니다.</li>
+      </ol>
+
+      <h3>API 키 저장 옵션</h3>
+      <ul>
+        <li>개인 PC라면 <span class="label">이 PC에 API 키 저장</span>을 체크하면 편합니다.</li>
+        <li>공용 PC, 회사 공용 노트북, 다른 사람이 쓰는 PC에서는 체크하지 않는 것이 좋습니다.</li>
+        <li>저장된 설정은 Windows 사용자 설정 폴더의 <span class="path">%APPDATA%\ClipNoteAI\settings.json</span>에 저장됩니다.</li>
+      </ul>
+
+      <div class="warning">
+        <strong>키가 틀렸을 때:</strong> 처리 중 OpenAI 오류가 나면 API 키가 잘못되었거나, 결제 설정이 없거나, 사용 한도가 부족할 수 있습니다.
+      </div>
+    </section>
+
+    <section id="scene">
+      <h2>8. 주요 장면 수 설정법</h2>
+      <p>영상마다 좋은 장면 수가 다릅니다. 짧은 릴스는 몇 장면이면 충분하고, 긴 강의는 더 많은 장면이 필요합니다.</p>
+
+      <h3>추천 설정</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>영상 종류</th>
+            <th>추천 설정</th>
+            <th>설명</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>30초~2분 릴스</td>
+            <td>자동, 최소 4 / 최대 8</td>
+            <td>짧지만 장면 전환이 빠르므로 너무 적게 뽑지 않는 것이 좋습니다.</td>
+          </tr>
+          <tr>
+            <td>5~20분 유튜브 영상</td>
+            <td>자동, 최소 6 / 최대 16</td>
+            <td>주제 전환과 예시를 적당히 잡기 좋습니다.</td>
+          </tr>
+          <tr>
+            <td>1시간 강의</td>
+            <td>자동, 최소 10 / 최대 24</td>
+            <td>챕터처럼 핵심 흐름을 잡는 데 적합합니다.</td>
+          </tr>
+          <tr>
+            <td>특정 개수가 꼭 필요할 때</td>
+            <td>자동 끄기, 직접 지정</td>
+            <td>보고서 형식이나 발표 자료에 맞춰 장면 수를 고정할 수 있습니다.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="notice">
+        <strong>처음 쓰는 경우:</strong> <span class="label">장면 수 자동 결정</span>을 켜 둔 기본 설정을 추천합니다.
+      </div>
+    </section>
+
+    <section id="outputs">
+      <h2>9. 결과 파일 보는 법</h2>
+      <p>작업이 끝나면 출력 폴더 안에 새 폴더가 생깁니다. 폴더 이름은 보통 <span class="path">날짜_시간_영상제목</span> 형태입니다.</p>
+
+      <pre>outputs
+└─ 20260509_132000_영상제목
+   ├─ summary.md
+   ├─ summary.html
+   ├─ transcript.txt
+   ├─ metadata.json
+   └─ frames
+      ├─ scene_01_00-00-12.jpg
+      └─ scene_02_00-00-28.jpg</pre>
+
+      <table>
+        <thead>
+          <tr>
+            <th>파일</th>
+            <th>용도</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="path">summary.html</span></td>
+            <td>가장 보기 쉬운 결과 파일입니다. 더블클릭하면 브라우저에서 열립니다.</td>
+          </tr>
+          <tr>
+            <td><span class="path">summary.md</span></td>
+            <td>Notion, GitHub, 블로그 도구 등에 옮기기 좋은 마크다운 파일입니다.</td>
+          </tr>
+          <tr>
+            <td><span class="path">transcript.txt</span></td>
+            <td>시간대별로 정리된 전체 전사문입니다.</td>
+          </tr>
+          <tr>
+            <td><span class="path">frames</span> 폴더</td>
+            <td>주요 장면 이미지가 저장됩니다.</td>
+          </tr>
+          <tr>
+            <td><span class="path">metadata.json</span></td>
+            <td>개발자나 자동화 도구가 쓰기 좋은 구조화 데이터입니다. 일반 사용자는 열지 않아도 됩니다.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="notion">
+      <h2>10. Notion에 옮기는 법</h2>
+      <p>일반 사용자에게 가장 쉬운 방법은 <span class="path">summary.html</span>을 열고 필요한 내용을 복사해서 Notion에 붙여 넣는 방식입니다.</p>
+
+      <h3>방법 A: 가장 쉬운 복사/붙여넣기</h3>
+      <ol>
+        <li>결과 폴더에서 <span class="path">summary.html</span>을 더블클릭합니다.</li>
+        <li>브라우저에서 노트가 열립니다.</li>
+        <li>원하는 내용을 드래그해서 복사합니다.</li>
+        <li>Notion 페이지에 붙여 넣습니다.</li>
+      </ol>
+
+      <h3>방법 B: Markdown 가져오기</h3>
+      <ol>
+        <li>Notion에서 새 페이지를 만듭니다.</li>
+        <li>가져오기 또는 Import 메뉴를 사용합니다.</li>
+        <li><span class="path">summary.md</span> 파일을 선택합니다.</li>
+      </ol>
+
+      <div class="notice">
+        <strong>이미지 참고:</strong> Notion에 붙여 넣을 때 이미지가 자동으로 같이 들어가지 않는 경우가 있습니다. 그때는 결과 폴더의 <span class="path">frames</span> 이미지를 Notion에 직접 끌어다 놓으면 됩니다.
+      </div>
+    </section>
+
+    <section id="cost">
+      <h2>11. 비용과 처리 시간</h2>
+      <p>이 프로그램은 OpenAI API를 사용하기 때문에 영상 길이에 따라 비용과 시간이 달라집니다.</p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>항목</th>
+            <th>영향</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>영상 길이</td>
+            <td>길수록 음성 전사 비용과 시간이 늘어납니다.</td>
+          </tr>
+          <tr>
+            <td>말의 양</td>
+            <td>같은 10분 영상이라도 말이 많으면 처리할 텍스트가 많아집니다.</td>
+          </tr>
+          <tr>
+            <td>주요 장면 수</td>
+            <td>이미지 추출 자체는 비용이 거의 없지만, 장면을 많이 고르면 결과 파일이 커집니다.</td>
+          </tr>
+          <tr>
+            <td>모델 선택</td>
+            <td>고성능 모델을 쓰면 품질이 좋아질 수 있지만 비용이 더 커질 수 있습니다.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="success">
+        <strong>추천:</strong> 처음에는 기본 모델과 자동 장면 수로 테스트한 뒤, 결과가 마음에 들면 긴 영상에 사용하세요.
+      </div>
+    </section>
+
+    <section id="troubleshooting">
+      <h2>12. 문제가 생겼을 때</h2>
+
+      <h3>프로그램이 안 켜져요</h3>
+      <ul>
+        <li>압축 파일 안에서 바로 실행하지 말고, 먼저 압축을 완전히 푼 뒤 실행해 보세요.</li>
+        <li>Windows 보안 경고가 뜨면, 신뢰할 수 있는 배포 파일인지 확인한 뒤 실행하세요.</li>
+      </ul>
+
+      <h3>유튜브 또는 릴스 다운로드가 실패해요</h3>
+      <ul>
+        <li>링크가 공개 영상인지 확인하세요.</li>
+        <li>브라우저에서는 보이지만 프로그램에서 실패하면 <span class="label">브라우저 쿠키 사용</span>을 켜고 Chrome 또는 Edge를 선택하세요.</li>
+        <li>비공개 영상, 지역 제한 영상, 로그인 필수 영상은 실패할 수 있습니다.</li>
+      </ul>
+
+      <h3>OpenAI 오류가 나요</h3>
+      <ul>
+        <li>API 키를 다시 복사해서 붙여 넣어 보세요.</li>
+        <li>OpenAI API 결제 설정이 되어 있는지 확인하세요.</li>
+        <li>계정 사용 한도 또는 결제 한도에 걸리지 않았는지 확인하세요.</li>
+      </ul>
+
+      <h3>전사 결과가 이상해요</h3>
+      <ul>
+        <li>영상 음질이 낮거나 배경음이 크면 전사 품질이 떨어질 수 있습니다.</li>
+        <li>여러 사람이 동시에 말하면 문장이 어색해질 수 있습니다.</li>
+        <li>한국어와 외국어가 섞인 영상은 일부 단어가 다르게 적힐 수 있습니다.</li>
+      </ul>
+
+      <h3>결과 파일을 못 찾겠어요</h3>
+      <ul>
+        <li>프로그램에서 <span class="label">결과 폴더 열기</span> 버튼을 누르세요.</li>
+        <li>직접 찾을 때는 프로그램 폴더 안의 <span class="path">outputs</span> 폴더를 확인하세요.</li>
+        <li>출력 폴더를 바꿨다면, 바꾼 위치에 결과가 저장됩니다.</li>
+      </ul>
+    </section>
+
+    <section id="privacy">
+      <h2>13. 개인정보와 보안</h2>
+      <ul>
+        <li>분석하려는 영상의 음성 내용은 OpenAI API로 전송됩니다.</li>
+        <li>민감한 회의, 개인정보, 계약 자료가 포함된 영상은 조직의 보안 정책을 먼저 확인하세요.</li>
+        <li>API 키 저장을 켜면 이 PC의 사용자 설정 폴더에 키가 저장됩니다.</li>
+        <li>다른 사람에게 배포할 때는 본인의 API 키가 저장된 설정 파일을 함께 보내지 마세요.</li>
+      </ul>
+    </section>
+
+    <footer>
+      ClipNote AI 사용설명서 · 이 파일은 인터넷 없이도 열 수 있습니다.
+    </footer>
+  </main>
+</body>
+</html>
+

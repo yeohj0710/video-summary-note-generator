@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import os
 import queue
+import sys
 import threading
 import traceback
+import webbrowser
 from pathlib import Path
 from tkinter import filedialog, messagebox
 import tkinter as tk
@@ -55,6 +57,7 @@ class ClipNoteApp(ctk.CTk):
         header = ctk.CTkFrame(self, fg_color="#f8fafc", corner_radius=0)
         header.grid(row=0, column=0, sticky="ew")
         header.grid_columnconfigure(0, weight=1)
+        header.grid_columnconfigure(1, weight=0)
 
         title = ctk.CTkLabel(
             header,
@@ -70,6 +73,14 @@ class ClipNoteApp(ctk.CTk):
             text_color="#64748b",
         )
         subtitle.grid(row=1, column=0, padx=28, pady=(0, 20), sticky="w")
+        ctk.CTkButton(
+            header,
+            text="사용설명서 열기",
+            width=140,
+            fg_color="#334155",
+            hover_color="#1f2937",
+            command=self._open_user_guide,
+        ).grid(row=0, column=1, rowspan=2, padx=(10, 28), pady=24, sticky="e")
 
         body = ctk.CTkFrame(self, fg_color="#eef2f7", corner_radius=0)
         body.grid(row=1, column=0, sticky="nsew")
@@ -362,6 +373,21 @@ class ClipNoteApp(ctk.CTk):
         else:
             messagebox.showinfo("결과 폴더", str(path))
 
+    def _guide_path(self) -> Path:
+        if getattr(sys, "frozen", False):
+            return Path(sys.executable).resolve().parent / "사용설명서.html"
+        return Path(__file__).resolve().parents[2] / "사용설명서.html"
+
+    def _open_user_guide(self) -> None:
+        path = self._guide_path()
+        if not path.exists():
+            messagebox.showwarning("사용설명서 없음", f"사용설명서 파일을 찾지 못했습니다.\n\n{path}")
+            return
+        if os.name == "nt":
+            os.startfile(path)  # type: ignore[attr-defined]
+        else:
+            webbrowser.open(path.as_uri())
+
     def _on_close(self) -> None:
         self._collect_settings()
         self.destroy()
@@ -370,4 +396,3 @@ class ClipNoteApp(ctk.CTk):
 def main() -> None:
     app = ClipNoteApp()
     app.mainloop()
-

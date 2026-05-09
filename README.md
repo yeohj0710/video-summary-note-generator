@@ -39,11 +39,12 @@ Notion에는 `summary.md`를 가져오거나, `summary.html`을 브라우저로 
 release/
   ClipNoteAI/
     ClipNoteAI.exe
+    사용설명서.html
     outputs/
   ClipNoteAI.zip
 ```
 
-사용자는 `ClipNoteAI.exe`만 실행하면 됩니다. 결과물은 기본적으로 같은 폴더의 `outputs`에 저장됩니다.
+사용자는 `사용설명서.html`을 먼저 열어 사용법을 확인한 뒤 `ClipNoteAI.exe`를 실행하면 됩니다. 결과물은 기본적으로 같은 폴더의 `outputs`에 저장됩니다.
 
 ## 개발 실행
 
