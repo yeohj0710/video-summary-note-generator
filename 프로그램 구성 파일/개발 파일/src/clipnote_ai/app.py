@@ -14,6 +14,11 @@ import customtkinter as ctk
 
 from clipnote_ai.pipeline import PipelineResult, VideoNotePipeline
 from clipnote_ai.settings import AppSettings, default_output_dir, load_settings, save_settings
+from clipnote_ai.utils import resource_path
+
+
+SOURCE_URL_MODE = "링크로 가져오기"
+SOURCE_FILE_MODE = "내 컴퓨터 파일"
 
 
 class ClipNoteApp(ctk.CTk):
@@ -23,6 +28,7 @@ class ClipNoteApp(ctk.CTk):
         ctk.set_default_color_theme("blue")
 
         self.title("ClipNote AI")
+        self._set_window_icon()
         self.geometry("1160x820")
         self.minsize(1080, 740)
 
@@ -31,7 +37,7 @@ class ClipNoteApp(ctk.CTk):
         self.events: queue.Queue[tuple[str, object]] = queue.Queue()
         self.latest_result: PipelineResult | None = None
 
-        self.source_type = tk.StringVar(value="url")
+        self.source_type = tk.StringVar(value=SOURCE_URL_MODE)
         self.url_var = tk.StringVar()
         self.file_var = tk.StringVar()
         self.api_key_var = tk.StringVar(value=self.settings.api_key)
@@ -71,6 +77,15 @@ class ClipNoteApp(ctk.CTk):
         self.font_button = ctk.CTkFont(family=self.font_family, size=14, weight="bold")
         self.font_input = ctk.CTkFont(family=self.font_family, size=14)
         self.font_log = ctk.CTkFont(family=self.font_family, size=13)
+
+    def _set_window_icon(self) -> None:
+        icon_path = resource_path("assets", "clipnote.ico")
+        if not icon_path.exists():
+            return
+        try:
+            self.iconbitmap(str(icon_path))
+        except tk.TclError:
+            pass
 
     def _build_ui(self) -> None:
         self.grid_columnconfigure(0, weight=1)
@@ -147,73 +162,48 @@ class ClipNoteApp(ctk.CTk):
         return card
 
     def _source_card(self, parent: ctk.CTkBaseClass) -> ctk.CTkFrame:
-        card = self._card(parent, "1. 영상 선택")
-        mode_row = ctk.CTkFrame(card, fg_color="transparent")
-        mode_row.grid(row=1, column=0, padx=22, pady=(0, 14), sticky="ew")
-        mode_row.grid_columnconfigure((0, 1), weight=1)
+        card = self._card(parent, "1. 영상 가져오기")
 
-        ctk.CTkRadioButton(
-            mode_row,
-            text="URL로 가져오기",
-            variable=self.source_type,
-            value="url",
-            font=self.font_body,
-            radiobutton_width=24,
-            radiobutton_height=24,
-        ).grid(
-            row=0, column=0, sticky="w"
+        ctk.CTkLabel(card, text="가져올 방식", font=self.font_label, text_color="#334155").grid(
+            row=1, column=0, padx=22, pady=(0, 8), sticky="w"
         )
-        ctk.CTkRadioButton(
-            mode_row,
-            text="내 컴퓨터 파일",
-            variable=self.source_type,
-            value="file",
-            font=self.font_body,
-            radiobutton_width=24,
-            radiobutton_height=24,
-        ).grid(
-            row=0, column=1, sticky="w"
-        )
-
-        url_label = ctk.CTkLabel(card, text="릴스 또는 유튜브 링크", font=self.font_label, text_color="#334155")
-        url_label.grid(row=2, column=0, padx=22, pady=(0, 7), sticky="w")
-        url_entry = ctk.CTkEntry(
+        self.source_mode_switch = ctk.CTkSegmentedButton(
             card,
-            textvariable=self.url_var,
-            placeholder_text="https://www.youtube.com/watch?v=...",
-            height=38,
-            font=self.font_input,
-            corner_radius=7,
-        )
-        url_entry.grid(row=3, column=0, padx=22, pady=(0, 14), sticky="ew")
-
-        file_row = ctk.CTkFrame(card, fg_color="transparent")
-        file_row.grid(row=4, column=0, padx=22, pady=(0, 14), sticky="ew")
-        file_row.grid_columnconfigure(0, weight=1)
-        ctk.CTkEntry(
-            file_row,
-            textvariable=self.file_var,
-            placeholder_text="동영상 파일 경로",
-            height=38,
-            font=self.font_input,
-            corner_radius=7,
-        ).grid(
-            row=0, column=0, sticky="ew", padx=(0, 10)
-        )
-        ctk.CTkButton(
-            file_row,
-            text="파일 선택",
-            width=118,
-            height=38,
-            corner_radius=7,
+            values=[SOURCE_URL_MODE, SOURCE_FILE_MODE],
+            variable=self.source_type,
+            command=lambda _value: self._refresh_source_mode(),
+            height=40,
+            corner_radius=8,
             font=self.font_button,
-            command=self._choose_video_file,
-        ).grid(
-            row=0, column=1, sticky="e"
+            fg_color="#e2e8f0",
+            selected_color="#bfdbfe",
+            selected_hover_color="#93c5fd",
+            unselected_color="#f8fafc",
+            unselected_hover_color="#edf2f7",
+            text_color="#1f2937",
+            text_color_disabled="#94a3b8",
         )
+        self.source_mode_switch.grid(row=2, column=0, padx=22, pady=(0, 16), sticky="ew")
 
-        cookie_row = ctk.CTkFrame(card, fg_color="#f6f8fb", corner_radius=8)
-        cookie_row.grid(row=5, column=0, padx=22, pady=(0, 22), sticky="ew")
+        self.url_panel = ctk.CTkFrame(card, fg_color="#f6f8fb", corner_radius=8)
+        self.url_panel.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(
+            self.url_panel,
+            text="릴스 또는 유튜브 링크",
+            font=self.font_label,
+            text_color="#334155",
+        ).grid(row=0, column=0, padx=16, pady=(16, 7), sticky="w")
+        ctk.CTkEntry(
+            self.url_panel,
+            textvariable=self.url_var,
+            placeholder_text="https://www.youtube.com/watch?v=... 또는 https://www.instagram.com/reel/...",
+            height=40,
+            font=self.font_input,
+            corner_radius=7,
+        ).grid(row=1, column=0, padx=16, pady=(0, 14), sticky="ew")
+
+        cookie_row = ctk.CTkFrame(self.url_panel, fg_color="#ffffff", corner_radius=8)
+        cookie_row.grid(row=2, column=0, padx=16, pady=(0, 16), sticky="ew")
         cookie_row.grid_columnconfigure(1, weight=1)
         ctk.CTkCheckBox(
             cookie_row,
@@ -222,7 +212,7 @@ class ClipNoteApp(ctk.CTk):
             font=self.font_body,
             checkbox_width=24,
             checkbox_height=24,
-        ).grid(row=0, column=0, padx=16, pady=14, sticky="w")
+        ).grid(row=0, column=0, padx=14, pady=12, sticky="w")
         ctk.CTkComboBox(
             cookie_row,
             variable=self.cookie_browser_var,
@@ -232,8 +222,52 @@ class ClipNoteApp(ctk.CTk):
             font=self.font_input,
             dropdown_font=self.font_input,
             corner_radius=7,
-        ).grid(row=0, column=1, padx=(0, 16), pady=14, sticky="e")
+        ).grid(row=0, column=1, padx=(0, 14), pady=12, sticky="e")
+
+        self.file_panel = ctk.CTkFrame(card, fg_color="#f6f8fb", corner_radius=8)
+        self.file_panel.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(
+            self.file_panel,
+            text="내 컴퓨터 영상 파일",
+            font=self.font_label,
+            text_color="#334155",
+        ).grid(row=0, column=0, padx=16, pady=(16, 7), sticky="w")
+        file_row = ctk.CTkFrame(self.file_panel, fg_color="transparent")
+        file_row.grid(row=1, column=0, padx=16, pady=(0, 16), sticky="ew")
+        file_row.grid_columnconfigure(0, weight=1)
+        ctk.CTkEntry(
+            file_row,
+            textvariable=self.file_var,
+            placeholder_text="mp4, mov, mkv, avi, webm 파일",
+            height=40,
+            font=self.font_input,
+            corner_radius=7,
+        ).grid(row=0, column=0, sticky="ew", padx=(0, 10))
+        ctk.CTkButton(
+            file_row,
+            text="파일 선택",
+            width=118,
+            height=40,
+            corner_radius=7,
+            font=self.font_button,
+            command=self._choose_video_file,
+        ).grid(row=0, column=1, sticky="e")
+
+        self._refresh_source_mode()
         return card
+
+    def _refresh_source_mode(self) -> None:
+        if not hasattr(self, "url_panel") or not hasattr(self, "file_panel"):
+            return
+        if self.source_type.get() == SOURCE_FILE_MODE:
+            self.url_panel.grid_remove()
+            self.file_panel.grid(row=3, column=0, padx=22, pady=(0, 22), sticky="ew")
+        else:
+            self.file_panel.grid_remove()
+            self.url_panel.grid(row=3, column=0, padx=22, pady=(0, 22), sticky="ew")
+
+    def _is_url_mode(self) -> bool:
+        return self.source_type.get() != SOURCE_FILE_MODE
 
     def _api_card(self, parent: ctk.CTkBaseClass) -> ctk.CTkFrame:
         card = self._card(parent, "2. OpenAI 설정")
@@ -422,7 +456,8 @@ class ClipNoteApp(ctk.CTk):
         )
         if path:
             self.file_var.set(path)
-            self.source_type.set("file")
+            self.source_type.set(SOURCE_FILE_MODE)
+            self._refresh_source_mode()
 
     def _choose_output_dir(self) -> None:
         path = filedialog.askdirectory(title="출력 폴더 선택")
@@ -462,9 +497,19 @@ class ClipNoteApp(ctk.CTk):
             return
 
         settings = self._collect_settings()
-        source = self.url_var.get().strip() if self.source_type.get() == "url" else self.file_var.get().strip()
+        is_url_mode = self._is_url_mode()
+        source = self.url_var.get().strip() if is_url_mode else self.file_var.get().strip()
         if not source:
-            messagebox.showwarning("입력 필요", "URL 또는 동영상 파일을 선택해 주세요.")
+            if is_url_mode:
+                messagebox.showwarning("링크 필요", "릴스 또는 유튜브 링크를 입력해 주세요.")
+            else:
+                messagebox.showwarning("파일 필요", "내 컴퓨터의 동영상 파일을 선택해 주세요.")
+            return
+        if is_url_mode and not source.lower().startswith(("http://", "https://")):
+            messagebox.showwarning("링크 확인", "링크는 http:// 또는 https://로 시작해야 합니다.")
+            return
+        if not is_url_mode and not Path(source).expanduser().exists():
+            messagebox.showwarning("파일 확인", "선택한 동영상 파일을 찾을 수 없습니다.")
             return
         if not settings.api_key:
             messagebox.showwarning("API 키 필요", "OpenAI API 키를 입력해 주세요.")

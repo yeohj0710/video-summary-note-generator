@@ -31,7 +31,9 @@ if (Test-Path "dist") {
     --onedir `
     --windowed `
     --name "ClipNoteAI" `
+    --icon "assets\clipnote.ico" `
     --contents-directory $ProgramDirName `
+    --add-data "assets\clipnote.ico;assets" `
     --collect-all customtkinter `
     --collect-all reportlab `
     --collect-binaries imageio_ffmpeg `
