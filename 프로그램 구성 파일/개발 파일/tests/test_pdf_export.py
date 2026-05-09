@@ -26,6 +26,7 @@ def test_render_pdf_contains_key_scene_and_script(tmp_path: Path):
             summary="이 장면은 영상의 핵심 내용을 설명합니다.",
             quote="대표 발화입니다.",
             why="주제가 전환되는 지점입니다.",
+            script="안녕하세요. 이것은 이미지 아래에 들어갈 장면 대본입니다.",
             image_path=image_path,
         )
     ]
@@ -48,6 +49,37 @@ def test_render_pdf_contains_key_scene_and_script(tmp_path: Path):
 
     assert pdf_path.exists()
     assert pdf_path.stat().st_size > 1000
+
+
+def test_render_docx_contains_editable_note(tmp_path: Path):
+    frame_dir = tmp_path / "frames"
+    frame_dir.mkdir()
+    image_path = frame_dir / "scene.jpg"
+    image = Image.new("RGB", (720, 1280), "#2563eb")
+    image.save(image_path)
+
+    pipeline = VideoNotePipeline.__new__(VideoNotePipeline)
+    pipeline.progress = lambda *_args: None
+
+    scenes = [
+        Scene(
+            index=1,
+            seconds=12,
+            timecode="00:00:12",
+            heading="첫 장면",
+            summary="",
+            quote="",
+            why="",
+            script="첫 번째 문장입니다. 두 번째 문장입니다.",
+            image_path=image_path,
+        )
+    ]
+    analysis = {"title": "DOCX 테스트"}
+
+    docx_path = pipeline._render_docx(tmp_path, "DOCX 테스트", "https://example.com/video", scenes, analysis)
+
+    assert docx_path.exists()
+    assert docx_path.stat().st_size > 1000
 
 
 def test_transcript_paragraphs_split_long_blocks():

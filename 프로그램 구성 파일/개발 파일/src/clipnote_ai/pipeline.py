@@ -28,6 +28,7 @@ from clipnote_ai.utils import (
 
 ProgressCallback = Callable[[str, float, str], None]
 USER_PDF_NAME = "요약 노트.pdf"
+USER_DOCX_NAME = "편집용 노트.docx"
 USER_TRANSCRIPT_NAME = "전체 스크립트.txt"
 SUPPORT_DIR_NAME = "기타 파일"
 
@@ -51,6 +52,7 @@ class Scene:
     summary: str
     quote: str
     why: str
+    script: str = ""
     image_path: Path | None = None
 
 
@@ -60,6 +62,7 @@ class PipelineResult:
     markdown_path: Path
     html_path: Path
     pdf_path: Path
+    docx_path: Path
     transcript_path: Path
     title: str
     scene_count: int
@@ -138,14 +141,16 @@ class VideoNotePipeline:
         markdown_path = self._render_markdown(support_dir, source_title, source_label, duration, chunks, scenes, analysis)
         html_path = self._render_html(support_dir, source_title, source_label, duration, chunks, scenes, analysis)
         pdf_path = self._render_pdf(job_dir, source_title, source_label, duration, chunks, scenes, analysis)
+        docx_path = self._render_docx(job_dir, source_title, source_label, scenes, analysis)
         self._write_metadata(support_dir, source_title, source_label, duration, scenes, analysis)
 
-        self.progress("완료", 1.0, f"결과 생성 완료: {pdf_path.name}")
+        self.progress("완료", 1.0, f"결과 생성 완료: {pdf_path.name}, {docx_path.name}")
         return PipelineResult(
             output_dir=job_dir,
             markdown_path=markdown_path,
             html_path=html_path,
             pdf_path=pdf_path,
+            docx_path=docx_path,
             transcript_path=transcript_path,
             title=str(analysis.get("title") or source_title),
             scene_count=len(scenes),
@@ -433,11 +438,16 @@ class VideoNotePipeline:
                 "- 릴스처럼 짧으면 장면 간격을 촘촘히, 강의처럼 길면 챕터처럼 넓게 배치한다.\n"
                 "- 같은 말을 반복하는 장면은 하나만 고른다.\n"
                 "- seconds는 0 이상 영상 길이 미만의 정수여야 한다.\n\n"
+                "장면 아래에 넣을 대본(script) 기준:\n"
+                "- 선택한 장면과 직접 관련된 전사문 발췌문만 넣는다.\n"
+                "- 요약하거나 새 문장을 만들지 말고, 교정된 전사문 표현을 최대한 그대로 사용한다.\n"
+                "- 보통 2~8문장 정도로, 블로그 글에서 이미지 아래에 붙일 본문처럼 자연스럽게 고른다.\n"
+                "- 설명, 선정 이유, 대표 발화 같은 별도 코멘트는 넣지 않는다.\n\n"
                 "JSON 형식:\n"
                 "{\n"
                 '  "title": "노트 제목",\n'
                 '  "scenes": [\n'
-                '    {"seconds": 12, "timecode": "00:00:12", "heading": "장면 제목"}\n'
+                '    {"seconds": 12, "timecode": "00:00:12", "heading": "장면 제목", "script": "이미지 아래에 넣을 전사문 발췌"}\n'
                 "  ]\n"
                 "}\n\n"
                 f"전사문:\n{transcript}"
@@ -472,6 +482,7 @@ class VideoNotePipeline:
                         summary="",
                         quote="",
                         why="",
+                        script=str(item.get("script") or item.get("transcript") or ""),
                     )
                 )
 
@@ -493,6 +504,7 @@ class VideoNotePipeline:
                         summary="",
                         quote="",
                         why="",
+                        script="",
                     )
                 )
 
@@ -500,7 +512,18 @@ class VideoNotePipeline:
         for index, scene in enumerate(scenes, start=1):
             scene.index = index
             scene.timecode = format_timecode(scene.seconds)
+            if not scene.script.strip():
+                scene.script = self._fallback_scene_script(scene.seconds, chunks)
         return scenes
+
+    def _fallback_scene_script(self, seconds: float, chunks: list[TranscriptChunk]) -> str:
+        if not chunks:
+            return ""
+        chunk = next((item for item in chunks if item.start <= seconds <= item.end), None)
+        if chunk is None:
+            chunk = min(chunks, key=lambda item: abs(((item.start + item.end) / 2) - seconds))
+        paragraphs = self._transcript_paragraphs(chunk.clean_text or chunk.raw_text)
+        return "\n\n".join(paragraphs[:4]).strip()
 
     def _extract_scene_images(self, video_path: Path, support_dir: Path, scenes: list[Scene]) -> None:
         frames_dir = support_dir / "frames"
@@ -532,6 +555,9 @@ class VideoNotePipeline:
                 raise RuntimeError(f"장면 이미지 추출에 실패했습니다.\n{completed.stderr[-1200:]}")
             scene.image_path = output
 
+    def _source_link(self, source_label: str) -> str:
+        return source_label if self.is_url(source_label) else ""
+
     def _render_markdown(
         self,
         job_dir: Path,
@@ -544,33 +570,22 @@ class VideoNotePipeline:
     ) -> Path:
         markdown_path = job_dir / "summary.md"
         title = str(analysis.get("title") or source_title)
-        lines = [
-            f"# {title}",
-            "",
-            f"- 원본: {source_label}",
-            f"- 영상 길이: {format_timecode(duration)}",
-            f"- 주요 장면: {len(scenes)}개",
-            "- developed by yeohj0710",
-            "",
-        ]
+        source_link = self._source_link(source_label)
+        lines = [f"# {title}", ""]
+        if source_link:
+            lines.extend([source_link, ""])
 
-        lines.extend(["## 주요 화면", ""])
         for scene in scenes:
             rel_image = scene.image_path.relative_to(markdown_path.parent).as_posix() if scene.image_path else ""
             lines.extend(
                 [
-                    f"### {scene.index:02d}. {scene.timecode} · {scene.heading}",
+                    f"## {scene.heading} ({scene.timecode})",
                     "",
                     f"![{scene.heading}]({rel_image})" if rel_image else "",
                     "",
                 ]
             )
-
-        lines.extend(["## 전체 전사문", ""])
-        for chunk in chunks:
-            lines.append(f"### {format_timecode(chunk.start)} - {format_timecode(chunk.end)}")
-            lines.append("")
-            lines.extend(self._transcript_paragraphs(chunk.clean_text or chunk.raw_text))
+            lines.extend(self._transcript_paragraphs(scene.script))
             lines.append("")
 
         markdown_path.write_text("\n".join(lines).strip() + "\n", encoding="utf-8")
@@ -588,28 +603,18 @@ class VideoNotePipeline:
     ) -> Path:
         html_path = job_dir / "summary.html"
         title = str(analysis.get("title") or source_title)
+        source_link = self._source_link(source_label)
+        source_link_html = f'<p class="source"><a href="{html.escape(source_link)}">{html.escape(source_link)}</a></p>' if source_link else ""
         scene_cards = []
         for scene in scenes:
             rel_image = scene.image_path.relative_to(html_path.parent).as_posix() if scene.image_path else ""
+            script_html = "".join(f"<p>{html.escape(paragraph)}</p>" for paragraph in self._transcript_paragraphs(scene.script))
             scene_cards.append(
                 f"""
                 <section class="scene">
-                  <div class="time">{html.escape(scene.timecode)}</div>
-                  <h2>{scene.index:02d}. {html.escape(scene.heading)}</h2>
+                  <h2>{html.escape(scene.heading)} ({html.escape(scene.timecode)})</h2>
                   <img src="{html.escape(rel_image)}" alt="{html.escape(scene.heading)}">
-                </section>
-                """
-            )
-        transcript_blocks = []
-        for chunk in chunks:
-            paragraphs = "".join(
-                f"<p>{html.escape(paragraph)}</p>" for paragraph in self._transcript_paragraphs(chunk.clean_text or chunk.raw_text)
-            )
-            transcript_blocks.append(
-                f"""
-                <section class="script-block">
-                  <h3>{html.escape(format_timecode(chunk.start))} - {html.escape(format_timecode(chunk.end))}</h3>
-                  {paragraphs}
+                  <div class="script">{script_html}</div>
                 </section>
                 """
             )
@@ -650,9 +655,10 @@ class VideoNotePipeline:
       letter-spacing: 0;
       line-height: 1.15;
     }}
-    .meta {{
+    .source {{
       color: var(--muted);
       font-size: 14px;
+      overflow-wrap: anywhere;
     }}
     .credit {{
       display: inline-flex;
@@ -665,36 +671,25 @@ class VideoNotePipeline:
       font-weight: 700;
     }}
     .scene {{
-      padding: 30px 0;
+      padding: 32px 0 38px;
       border-top: 1px solid var(--line);
-    }}
-    .time {{
-      color: var(--accent);
-      font-weight: 700;
-      font-size: 14px;
+      break-inside: avoid;
     }}
     h2 {{
-      margin: 6px 0 16px;
+      margin: 0 0 16px;
       font-size: 24px;
       letter-spacing: 0;
     }}
     img {{
       width: 100%;
-      max-height: 680px;
+      max-height: 720px;
       object-fit: contain;
       background: #111827;
       border-radius: 8px;
       border: 1px solid var(--line);
     }}
-    .script-block {{
-      padding: 18px 0;
-      border-top: 1px solid var(--line);
-    }}
-    h3 {{
-      margin: 0 0 10px;
-      color: var(--accent);
-      font-size: 16px;
-      letter-spacing: 0;
+    .script {{
+      margin-top: 18px;
     }}
     p {{
       margin: 0 0 12px;
@@ -712,13 +707,9 @@ class VideoNotePipeline:
   <main>
     <header>
       <h1>{html.escape(title)}</h1>
-      <div class="meta">원본: {html.escape(source_label)} · 길이: {html.escape(format_timecode(duration))} · 주요 장면 {len(scenes)}개</div>
-      <div class="credit">developed by yeohj0710</div>
+      {source_link_html}
     </header>
-    <h2>주요 화면</h2>
     {''.join(scene_cards)}
-    <h2>전체 전사문</h2>
-    {''.join(transcript_blocks)}
     <footer>동영상 요약 노트 생성기 · developed by yeohj0710</footer>
   </main>
 </body>
@@ -781,17 +772,18 @@ class VideoNotePipeline:
         scenes: list[Scene],
         analysis: dict[str, object],
     ) -> Path:
-        self.progress("PDF 생성 중", 0.94, "주요 화면과 스크립트를 PDF로 정리하고 있습니다.")
+        self.progress("PDF 생성 중", 0.94, "장면 이미지와 대본을 PDF로 정리하고 있습니다.")
 
         from reportlab.lib import colors
         from reportlab.lib.pagesizes import A4
         from reportlab.lib.styles import ParagraphStyle
         from reportlab.lib.units import mm
-        from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+        from reportlab.platypus import KeepTogether, PageBreak, Paragraph, SimpleDocTemplate, Spacer
 
         pdf_path = job_dir / USER_PDF_NAME
         regular_font, bold_font = self._register_pdf_fonts()
         title = str(analysis.get("title") or source_title)
+        source_link = self._source_link(source_label)
 
         doc = SimpleDocTemplate(
             str(pdf_path),
@@ -819,11 +811,11 @@ class VideoNotePipeline:
             "h2": ParagraphStyle(
                 "ClipNoteH2",
                 fontName=bold_font,
-                fontSize=15,
-                leading=21,
+                fontSize=15.5,
+                leading=22,
                 textColor=colors.HexColor("#142033"),
-                spaceBefore=14,
-                spaceAfter=8,
+                spaceBefore=4,
+                spaceAfter=9,
             ),
             "h3": ParagraphStyle(
                 "ClipNoteH3",
@@ -850,59 +842,35 @@ class VideoNotePipeline:
                 textColor=colors.HexColor("#5f6b7a"),
                 spaceAfter=6,
             ),
-            "credit": ParagraphStyle(
-                "ClipNoteCredit",
-                fontName=bold_font,
-                fontSize=8.8,
-                leading=13,
-                textColor=colors.HexColor("#2563eb"),
-                backColor=colors.HexColor("#eaf2ff"),
-                borderPadding=5,
-                spaceAfter=6,
-            ),
-            "quote": ParagraphStyle(
-                "ClipNoteQuote",
+            "link": ParagraphStyle(
+                "ClipNoteLink",
                 fontName=regular_font,
-                fontSize=9.5,
-                leading=15,
-                leftIndent=8,
-                borderColor=colors.HexColor("#1677ff"),
-                borderWidth=0,
-                borderPadding=6,
-                backColor=colors.HexColor("#eef6ff"),
-                textColor=colors.HexColor("#263445"),
-                spaceAfter=7,
+                fontSize=9,
+                leading=14,
+                textColor=colors.HexColor("#2563eb"),
+                spaceAfter=9,
             ),
         }
 
         story = [
             Paragraph(self._pdf_paragraph_text(title), styles["title"]),
-            Paragraph(
-                self._pdf_paragraph_text(
-                    f"원본: {source_label}\n영상 길이: {format_timecode(duration)}\n주요 장면: {len(scenes)}개"
-                ),
-                styles["muted"],
-            ),
-            Paragraph("developed by yeohj0710", styles["credit"]),
-            Spacer(1, 5 * mm),
         ]
+        if source_link:
+            story.append(Paragraph(self._pdf_paragraph_text(source_link), styles["link"]))
+        story.append(Spacer(1, 4 * mm))
 
-        story.append(Paragraph("주요 화면", styles["h2"]))
-        for scene in scenes:
-            story.append(Paragraph(f"{scene.index:02d}. {scene.timecode} · {self._pdf_paragraph_text(scene.heading)}", styles["h3"]))
+        for index, scene in enumerate(scenes):
+            if index > 0:
+                story.append(PageBreak())
+            block = [Paragraph(f"{self._pdf_paragraph_text(scene.heading)} ({scene.timecode})", styles["h2"])]
             if scene.image_path and scene.image_path.exists():
-                image = self._pdf_image(scene.image_path, content_width, 92 * mm)
+                image = self._pdf_image(scene.image_path, content_width, 118 * mm)
                 if image:
-                    story.append(image)
-                    story.append(Spacer(1, 3 * mm))
-
-        story.append(PageBreak())
-        story.append(Paragraph("전체 스크립트", styles["h2"]))
-        for chunk in chunks:
-            chunk_title = f"{format_timecode(chunk.start)} - {format_timecode(chunk.end)}"
-            paragraphs = self._transcript_paragraphs(chunk.clean_text or chunk.raw_text)
-            story.append(Paragraph(self._pdf_paragraph_text(chunk_title), styles["h3"]))
-            for paragraph in paragraphs:
+                    image.hAlign = "CENTER"
+                    block.append(image)
+                    block.append(Spacer(1, 4 * mm))
+            story.append(KeepTogether(block))
+            for paragraph in self._transcript_paragraphs(scene.script):
                 story.append(Paragraph(self._pdf_paragraph_text(paragraph), styles["body"]))
 
         def draw_footer(canvas, document):
@@ -914,6 +882,87 @@ class VideoNotePipeline:
 
         doc.build(story, onFirstPage=draw_footer, onLaterPages=draw_footer)
         return pdf_path
+
+    def _render_docx(
+        self,
+        job_dir: Path,
+        source_title: str,
+        source_label: str,
+        scenes: list[Scene],
+        analysis: dict[str, object],
+    ) -> Path:
+        self.progress("DOCX 생성 중", 0.97, "수정 가능한 Word 문서를 만들고 있습니다.")
+
+        from docx import Document
+        from docx.enum.text import WD_ALIGN_PARAGRAPH
+        from docx.shared import Inches, Pt, RGBColor
+        from docx.oxml.ns import qn
+        from PIL import Image as PILImage
+
+        docx_path = job_dir / USER_DOCX_NAME
+        title = str(analysis.get("title") or source_title)
+        source_link = self._source_link(source_label)
+
+        document = Document()
+        section = document.sections[0]
+        section.top_margin = Inches(0.65)
+        section.bottom_margin = Inches(0.65)
+        section.left_margin = Inches(0.7)
+        section.right_margin = Inches(0.7)
+
+        styles = document.styles
+        normal = styles["Normal"]
+        normal.font.name = "맑은 고딕"
+        normal._element.rPr.rFonts.set(qn("w:eastAsia"), "맑은 고딕")
+        normal.font.size = Pt(10.5)
+
+        title_style = styles["Title"]
+        title_style.font.name = "맑은 고딕"
+        title_style._element.rPr.rFonts.set(qn("w:eastAsia"), "맑은 고딕")
+        title_style.font.size = Pt(22)
+        title_style.font.bold = True
+        title_style.font.color.rgb = RGBColor(20, 32, 51)
+
+        heading_style = styles["Heading 1"]
+        heading_style.font.name = "맑은 고딕"
+        heading_style._element.rPr.rFonts.set(qn("w:eastAsia"), "맑은 고딕")
+        heading_style.font.size = Pt(15)
+        heading_style.font.bold = True
+        heading_style.font.color.rgb = RGBColor(20, 32, 51)
+
+        document.add_paragraph(title, style="Title")
+        if source_link:
+            paragraph = document.add_paragraph()
+            run = paragraph.add_run(source_link)
+            run.font.color.rgb = RGBColor(37, 99, 235)
+            run.font.size = Pt(9)
+
+        max_width = 6.2
+        max_height = 4.9
+        for index, scene in enumerate(scenes):
+            if index > 0:
+                document.add_page_break()
+            document.add_heading(f"{scene.heading} ({scene.timecode})", level=1)
+            if scene.image_path and scene.image_path.exists():
+                with PILImage.open(scene.image_path) as image:
+                    width_px, height_px = image.size
+                if width_px > 0 and height_px > 0:
+                    width_inches = max_width
+                    height_inches = width_inches * height_px / width_px
+                    if height_inches > max_height:
+                        height_inches = max_height
+                        width_inches = height_inches * width_px / height_px
+                    picture_paragraph = document.add_paragraph()
+                    picture_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                    picture_paragraph.add_run().add_picture(str(scene.image_path), width=Inches(width_inches))
+            for paragraph_text in self._transcript_paragraphs(scene.script):
+                paragraph = document.add_paragraph(paragraph_text)
+                paragraph.paragraph_format.space_after = Pt(8)
+                paragraph.paragraph_format.line_spacing = 1.15
+
+        document.core_properties.author = "yeohj0710"
+        document.save(docx_path)
+        return docx_path
 
     def _write_metadata(
         self,
@@ -940,6 +989,7 @@ class VideoNotePipeline:
                     "summary": scene.summary,
                     "quote": scene.quote,
                     "why": scene.why,
+                    "script": scene.script,
                     "image": str(scene.image_path.relative_to(job_dir)) if scene.image_path else "",
                 }
                 for scene in scenes

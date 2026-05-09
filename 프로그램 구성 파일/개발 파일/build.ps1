@@ -36,6 +36,7 @@ if (Test-Path "dist") {
     --contents-directory $ProgramDirName `
     --add-data "assets\clipnote.ico;assets" `
     --collect-all customtkinter `
+    --collect-all docx `
     --collect-all reportlab `
     --collect-binaries imageio_ffmpeg `
     --hidden-import yt_dlp `
