@@ -46,8 +46,9 @@ video-summary-note-generator/
     요약 노트.pdf
     전체 스크립트.txt
     기타 파일/
-      summary.html
-      summary.md
+      요약 노트.html
+      요약 노트.md
+      노션 붙여넣기용 요약 노트.docx
       metadata.json
       frames/
         scene_01_00-00-12.jpg
@@ -55,7 +56,7 @@ video-summary-note-generator/
       audio_chunks/
 ```
 
-다른 사람에게 전달할 때는 `요약 노트.pdf`가 가장 편합니다. Notion에 정리하고 싶으면 PDF를 바로 첨부하거나, 필요할 때만 `기타 파일` 안의 `summary.md`를 가져오면 됩니다.
+다른 사람에게 전달할 때는 `요약 노트.pdf`가 가장 편합니다. Notion에 정리하고 싶으면 `기타 파일` 안의 `노션 붙여넣기용 요약 노트.docx`를 열어서 전체 내용을 복사한 뒤 Notion에 붙여넣으면 됩니다.
 
 ## 개발 실행
 

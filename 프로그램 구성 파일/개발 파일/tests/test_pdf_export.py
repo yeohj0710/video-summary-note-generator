@@ -79,6 +79,7 @@ def test_render_docx_contains_editable_note(tmp_path: Path):
     docx_path = pipeline._render_docx(tmp_path, "DOCX 테스트", "https://example.com/video", scenes, analysis)
 
     assert docx_path.exists()
+    assert docx_path.name == "노션 붙여넣기용 요약 노트.docx"
     assert docx_path.stat().st_size > 1000
 
 

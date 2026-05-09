@@ -28,9 +28,11 @@ from clipnote_ai.utils import (
 
 ProgressCallback = Callable[[str, float, str], None]
 USER_PDF_NAME = "요약 노트.pdf"
-USER_DOCX_NAME = "편집용 노트.docx"
+USER_DOCX_NAME = "노션 붙여넣기용 요약 노트.docx"
 USER_TRANSCRIPT_NAME = "전체 스크립트.txt"
 SUPPORT_DIR_NAME = "기타 파일"
+SUPPORT_MARKDOWN_NAME = "요약 노트.md"
+SUPPORT_HTML_NAME = "요약 노트.html"
 
 
 @dataclass
@@ -142,10 +144,10 @@ class VideoNotePipeline:
         markdown_path = self._render_markdown(support_dir, source_title, source_label, duration, chunks, scenes, analysis)
         html_path = self._render_html(support_dir, source_title, source_label, duration, chunks, scenes, analysis)
         pdf_path = self._render_pdf(job_dir, source_title, source_label, duration, chunks, scenes, analysis)
-        docx_path = self._render_docx(job_dir, source_title, source_label, scenes, analysis)
+        docx_path = self._render_docx(support_dir, source_title, source_label, scenes, analysis)
         self._write_metadata(support_dir, source_title, source_label, duration, scenes, analysis)
 
-        self.progress("완료", 1.0, f"결과 생성 완료: {pdf_path.name}, {docx_path.name}")
+        self.progress("완료", 1.0, f"결과 생성 완료: {pdf_path.name}, {transcript_path.name}")
         return PipelineResult(
             output_dir=job_dir,
             markdown_path=markdown_path,
@@ -648,7 +650,7 @@ class VideoNotePipeline:
         scenes: list[Scene],
         analysis: dict[str, object],
     ) -> Path:
-        markdown_path = job_dir / "summary.md"
+        markdown_path = job_dir / SUPPORT_MARKDOWN_NAME
         title = str(analysis.get("title") or source_title)
         source_link = self._source_link(source_label)
         lines = [f"# {title}", ""]
@@ -681,7 +683,7 @@ class VideoNotePipeline:
         scenes: list[Scene],
         analysis: dict[str, object],
     ) -> Path:
-        html_path = job_dir / "summary.html"
+        html_path = job_dir / SUPPORT_HTML_NAME
         title = str(analysis.get("title") or source_title)
         source_link = self._source_link(source_label)
         source_link_html = f'<p class="source"><a href="{html.escape(source_link)}">{html.escape(source_link)}</a></p>' if source_link else ""
@@ -974,7 +976,7 @@ class VideoNotePipeline:
         scenes: list[Scene],
         analysis: dict[str, object],
     ) -> Path:
-        self.progress("DOCX 생성 중", 0.97, "수정 가능한 Word 문서를 만들고 있습니다.")
+        self.progress("DOCX 생성 중", 0.97, "노션에 붙여넣기 쉬운 Word 문서를 만들고 있습니다.")
 
         from docx import Document
         from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -1013,10 +1015,10 @@ class VideoNotePipeline:
         heading_style.font.bold = True
         heading_style.font.color.rgb = RGBColor(20, 32, 51)
 
-        document.add_paragraph(title, style="Title")
+        document.add_paragraph(f"# {title}")
         if source_link:
-            paragraph = document.add_paragraph()
-            run = paragraph.add_run(source_link)
+            paragraph = document.add_paragraph(source_link)
+            run = paragraph.runs[0]
             run.font.color.rgb = RGBColor(37, 99, 235)
             run.font.size = Pt(9)
 
@@ -1025,7 +1027,7 @@ class VideoNotePipeline:
         for index, scene in enumerate(scenes):
             if index > 0:
                 document.add_page_break()
-            document.add_heading(f"{scene.heading} ({scene.timecode})", level=1)
+            document.add_paragraph(f"## {scene.heading} ({scene.timecode})")
             if scene.image_path and scene.image_path.exists():
                 with PILImage.open(scene.image_path) as image:
                     width_px, height_px = image.size
