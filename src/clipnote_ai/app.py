@@ -63,6 +63,7 @@ class ClipNoteApp(ctk.CTk):
         self.option_add("*Font", f"{{{self.font_family}}} 11")
         self.font_title = ctk.CTkFont(family=self.font_family, size=32, weight="bold")
         self.font_subtitle = ctk.CTkFont(family=self.font_family, size=15)
+        self.font_credit = ctk.CTkFont(family=self.font_family, size=12, weight="bold")
         self.font_card_title = ctk.CTkFont(family=self.font_family, size=19, weight="bold")
         self.font_section_title = ctk.CTkFont(family=self.font_family, size=18, weight="bold")
         self.font_body = ctk.CTkFont(family=self.font_family, size=14)
@@ -87,6 +88,17 @@ class ClipNoteApp(ctk.CTk):
             text_color="#111827",
         )
         title.grid(row=0, column=0, padx=32, pady=(24, 5), sticky="w")
+        credit = ctk.CTkLabel(
+            header,
+            text="developed by yeohj0710",
+            font=self.font_credit,
+            text_color="#2563eb",
+            fg_color="#eaf2ff",
+            corner_radius=6,
+            padx=10,
+            pady=3,
+        )
+        credit.grid(row=0, column=0, padx=(214, 0), pady=(31, 0), sticky="w")
         subtitle = ctk.CTkLabel(
             header,
             text="릴스, 유튜브, 로컬 동영상을 주요 장면 이미지와 한국어 노트로 변환합니다.",

@@ -500,6 +500,7 @@ class VideoNotePipeline:
             f"- 원본: {source_label}",
             f"- 영상 길이: {format_timecode(duration)}",
             f"- 주요 장면: {len(scenes)}개",
+            "- developed by yeohj0710",
             "",
             "## 한 줄 요약",
             "",
@@ -615,6 +616,16 @@ class VideoNotePipeline:
       font-size: 19px;
       margin-top: 18px;
     }}
+    .credit {{
+      display: inline-flex;
+      margin-top: 10px;
+      padding: 3px 9px;
+      border-radius: 6px;
+      background: #eaf2ff;
+      color: #2563eb;
+      font-size: 13px;
+      font-weight: 700;
+    }}
     ul {{
       padding-left: 22px;
     }}
@@ -646,6 +657,13 @@ class VideoNotePipeline:
       border-left: 4px solid var(--accent);
       color: #263445;
     }}
+    footer {{
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 13px;
+      padding-top: 18px;
+      margin-top: 28px;
+    }}
   </style>
 </head>
 <body>
@@ -653,10 +671,12 @@ class VideoNotePipeline:
     <header>
       <h1>{html.escape(title)}</h1>
       <div class="meta">원본: {html.escape(source_label)} · 길이: {html.escape(format_timecode(duration))} · 주요 장면 {len(scenes)}개</div>
+      <div class="credit">developed by yeohj0710</div>
       <p class="summary">{html.escape(str(analysis.get("one_line_summary") or ""))}</p>
       <ul>{bullet_items}</ul>
     </header>
     {''.join(scene_cards)}
+    <footer>ClipNote AI · developed by yeohj0710</footer>
   </main>
 </body>
 </html>
@@ -740,6 +760,7 @@ class VideoNotePipeline:
             bottomMargin=17 * mm,
             title=title,
             author="ClipNote AI",
+            subject="developed by yeohj0710",
         )
         width, _height = A4
         content_width = width - doc.leftMargin - doc.rightMargin
@@ -787,6 +808,16 @@ class VideoNotePipeline:
                 textColor=colors.HexColor("#5f6b7a"),
                 spaceAfter=6,
             ),
+            "credit": ParagraphStyle(
+                "ClipNoteCredit",
+                fontName=bold_font,
+                fontSize=8.8,
+                leading=13,
+                textColor=colors.HexColor("#2563eb"),
+                backColor=colors.HexColor("#eaf2ff"),
+                borderPadding=5,
+                spaceAfter=6,
+            ),
             "quote": ParagraphStyle(
                 "ClipNoteQuote",
                 fontName=regular_font,
@@ -810,6 +841,7 @@ class VideoNotePipeline:
                 ),
                 styles["muted"],
             ),
+            Paragraph("developed by yeohj0710", styles["credit"]),
             Spacer(1, 5 * mm),
             Paragraph("한 줄 요약", styles["h2"]),
             Paragraph(self._pdf_paragraph_text(analysis.get("one_line_summary") or "요약이 비어 있습니다."), styles["body"]),
@@ -848,7 +880,7 @@ class VideoNotePipeline:
             canvas.saveState()
             canvas.setFont(regular_font, 8)
             canvas.setFillColor(colors.HexColor("#7a8797"))
-            canvas.drawRightString(width - doc.rightMargin, 9 * mm, f"ClipNote AI · {document.page}")
+            canvas.drawRightString(width - doc.rightMargin, 9 * mm, f"ClipNote AI · developed by yeohj0710 · {document.page}")
             canvas.restoreState()
 
         doc.build(story, onFirstPage=draw_footer, onLaterPages=draw_footer)
