@@ -31,12 +31,15 @@ def test_run_writes_video_and_txt_pair_in_output_root(tmp_path: Path, monkeypatc
     )
     monkeypatch.setattr(app, "_transcribe_chunks", lambda _chunks: None)
     monkeypatch.setattr(app, "_clean_chunks", lambda _chunks: None)
+    monkeypatch.setattr(app, "_text_response", lambda **_kwargs: "테스트 노트\n\n핵심 디테일을 살린 요약입니다.")
 
     result = app.run(str(source))
     files = sorted(path.name for path in output_dir.iterdir())
 
     assert result.output_dir == output_dir
-    assert len(files) == 2
-    assert files[0].endswith("source.mp4")
-    assert files[1].endswith("source.txt")
+    assert len(files) == 3
+    assert any(name.endswith("source.mp4") for name in files)
+    assert any(name.endswith("source.txt") for name in files)
+    assert any(name.endswith("source 요약.txt") for name in files)
     assert "\n\n" in result.transcript_path.read_text(encoding="utf-8")
+    assert "핵심 디테일" in result.summary_path.read_text(encoding="utf-8")

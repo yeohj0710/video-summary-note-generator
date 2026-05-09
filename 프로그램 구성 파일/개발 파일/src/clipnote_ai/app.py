@@ -310,7 +310,7 @@ class ClipNoteApp(ctk.CTk):
         credit.grid(row=1, column=0, padx=32, pady=(0, 7), sticky="w")
         subtitle = ctk.CTkLabel(
             header,
-            text="릴스, 유튜브, 로컬 동영상을 저장하고 읽기 쉬운 전체 스크립트 TXT로 변환합니다.",
+            text="릴스, 유튜브, 로컬 동영상을 저장하고 전체 스크립트 TXT와 상세 요약 TXT로 변환합니다.",
             font=self.font_subtitle,
             text_color="#475569",
         )
@@ -976,7 +976,7 @@ class ClipNoteApp(ctk.CTk):
                 self._set_start_button_busy(False)
                 self._set_controls_locked(False)
                 self._set_output_button_enabled(True)
-                messagebox.showinfo("완료", f"영상과 스크립트가 저장되었습니다.\n\n{self.latest_result.output_dir}")
+                messagebox.showinfo("완료", f"영상, 스크립트, 요약 파일이 저장되었습니다.\n\n{self.latest_result.output_dir}")
             elif kind == "error":
                 self._set_status("오류", 0)
                 self._append_log(str(payload))

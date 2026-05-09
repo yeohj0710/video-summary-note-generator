@@ -65,6 +65,7 @@ class PipelineResult:
     output_dir: Path
     video_path: Path
     transcript_path: Path
+    summary_path: Path
     title: str
 
 
@@ -107,6 +108,7 @@ class VideoNotePipeline:
         final_base = self._unique_output_base(output_root, f"{started} {safe_title}", source_video_path.suffix or ".mp4")
         video_path = final_base.with_suffix(source_video_path.suffix or ".mp4")
         transcript_path = final_base.with_suffix(".txt")
+        summary_path = final_base.with_name(f"{final_base.name} 요약").with_suffix(".txt")
 
         if source_video_path.resolve() != video_path.resolve():
             self.progress("영상 저장 중", 0.10, f"동영상을 결과 폴더에 저장합니다: {video_path.name}")
@@ -127,19 +129,25 @@ class VideoNotePipeline:
             self._transcribe_chunks(chunks)
             self._clean_chunks(chunks)
             self._write_transcript(transcript_path, chunks)
+            self._write_summary(summary_path, source_title, chunks)
 
-        self.progress("완료", 1.0, f"결과 생성 완료: {video_path.name}, {transcript_path.name}")
+        self.progress("완료", 1.0, f"결과 생성 완료: {video_path.name}, {transcript_path.name}, {summary_path.name}")
         return PipelineResult(
             output_dir=output_root,
             video_path=video_path,
             transcript_path=transcript_path,
+            summary_path=summary_path,
             title=source_title,
         )
 
     def _unique_output_base(self, output_root: Path, base_name: str, video_suffix: str) -> Path:
         candidate = output_root / base_name
         suffix = 1
-        while candidate.with_suffix(video_suffix).exists() or candidate.with_suffix(".txt").exists():
+        while (
+            candidate.with_suffix(video_suffix).exists()
+            or candidate.with_suffix(".txt").exists()
+            or candidate.with_name(f"{candidate.name} 요약").with_suffix(".txt").exists()
+        ):
             suffix += 1
             candidate = output_root / f"{base_name}_{suffix}"
         return candidate
@@ -333,6 +341,52 @@ class VideoNotePipeline:
             paragraphs.extend(self._note_paragraphs(text))
         transcript_path.write_text("\n\n".join(paragraphs).strip() + "\n", encoding="utf-8")
         return transcript_path
+
+    def _write_summary(self, summary_path: Path, title: str, chunks: list[TranscriptChunk]) -> Path:
+        self.progress("요약 정리 중", 0.86, "중요한 수치와 디테일을 살려 상세 요약을 만들고 있습니다.")
+        transcript = self._summary_source_text(chunks)
+        summary = self._text_response(
+            system=(
+                "너는 한국어 영상 스크립트를 정리하는 전문 편집자다. "
+                "짧게 뭉개는 요약이 아니라, 핵심 디테일을 보존하는 상세 요약본을 만든다. "
+                "원문에 없는 내용, 추측, 평가를 추가하지 않는다."
+            ),
+            user=(
+                f"영상 제목: {title}\n\n"
+                "아래 전사문을 요약해 주세요.\n\n"
+                "요약 원칙:\n"
+                "- 핵심 수치, 금액, 날짜, 기간, 비율, 조건, 인물/회사/제품명, 단계, 예외, 원인과 결과는 반드시 남긴다.\n"
+                "- 반복 표현, 말버릇, 중복 설명, 진행자가 시간을 끄는 말만 줄인다.\n"
+                "- 단순히 비례해서 줄이지 말고, 중요한 정보 밀도가 높은 부분은 길게 남긴다.\n"
+                "- 너무 짧은 요약은 금지한다. 원문을 대체해서 이해할 수 있을 정도로 상세하게 쓴다.\n"
+                "- 원문의 순서를 최대한 유지한다.\n"
+                "- 확실하지 않은 내용은 단정하지 않는다.\n\n"
+                "출력 형식:\n"
+                "1. 첫 줄에는 영상 제목을 쓴다.\n"
+                "2. 그 다음 줄부터 자연스러운 문단형 요약을 쓴다.\n"
+                "3. 문단 사이에는 빈 줄을 하나 넣는다.\n"
+                "4. 불릿을 남발하지 말고, 필요한 경우에만 짧게 사용한다.\n\n"
+                f"전사문:\n{transcript}"
+            ),
+        ).strip()
+        summary_path.write_text(self._normalize_summary_text(summary, title), encoding="utf-8")
+        return summary_path
+
+    def _summary_source_text(self, chunks: list[TranscriptChunk], max_chars: int = 120_000) -> str:
+        blocks: list[str] = []
+        per_chunk_limit = max(1200, max_chars // max(1, len(chunks)))
+        for chunk in chunks:
+            text = self._strip_transcript_labels(chunk.clean_text or chunk.raw_text)
+            if len(text) > per_chunk_limit:
+                text = text[:per_chunk_limit].rstrip() + "\n...[긴 구간이라 일부 생략됨]"
+            blocks.append(text)
+        return "\n\n".join(block for block in blocks if block.strip()).strip()
+
+    def _normalize_summary_text(self, summary: str, title: str) -> str:
+        cleaned = re.sub(r"\n{3,}", "\n\n", summary.strip())
+        if not cleaned:
+            cleaned = title.strip()
+        return cleaned + "\n"
 
     def _strip_transcript_labels(self, text: str) -> str:
         cleaned = re.sub(r"^\s*\[[0-9:.]+\s*-\s*[0-9:.]+\]\s*", "", text.strip())
