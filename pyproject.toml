@@ -1,0 +1,11 @@
+[project]
+name = "clipnote-ai"
+version = "0.1.0"
+description = "릴스, 유튜브, 로컬 동영상을 주요 장면 이미지와 한국어 노트로 변환하는 Windows 데스크톱 앱"
+readme = "README.md"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
