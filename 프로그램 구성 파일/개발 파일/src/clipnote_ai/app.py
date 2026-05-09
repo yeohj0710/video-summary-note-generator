@@ -210,6 +210,7 @@ class ClipNoteApp(ctk.CTk):
         self.events: queue.Queue[tuple[str, object]] = queue.Queue()
         self.latest_result: PipelineResult | None = None
         self.is_processing = False
+        self.processing_locked_widgets: list[ctk.CTkBaseClass] = []
 
         self.source_type = tk.StringVar(value=SOURCE_URL_MODE)
         self.url_var = tk.StringVar()
@@ -333,6 +334,7 @@ class ClipNoteApp(ctk.CTk):
         self._source_card(left).grid(row=0, column=0, sticky="ew", pady=(0, 14))
         self._api_card(left).grid(row=1, column=0, sticky="ew", pady=(0, 14))
         self._output_card(left).grid(row=2, column=0, sticky="ew", pady=(0, 14))
+        self._register_processing_controls()
 
         self._status_panel(right)
 
@@ -375,27 +377,29 @@ class ClipNoteApp(ctk.CTk):
             font=self.font_label,
             text_color="#334155",
         ).grid(row=0, column=0, padx=16, pady=(16, 7), sticky="w")
-        ctk.CTkEntry(
+        self.url_entry = ctk.CTkEntry(
             self.url_panel,
             textvariable=self.url_var,
             placeholder_text="https://www.youtube.com/watch?v=... 또는 https://www.instagram.com/reel/...",
             height=40,
             font=self.font_input,
             corner_radius=7,
-        ).grid(row=1, column=0, padx=16, pady=(0, 14), sticky="ew")
+        )
+        self.url_entry.grid(row=1, column=0, padx=16, pady=(0, 14), sticky="ew")
 
         cookie_row = ctk.CTkFrame(self.url_panel, fg_color="#ffffff", corner_radius=8)
         cookie_row.grid(row=2, column=0, padx=16, pady=(0, 16), sticky="ew")
         cookie_row.grid_columnconfigure(1, weight=1)
-        ctk.CTkCheckBox(
+        self.use_cookies_checkbox = ctk.CTkCheckBox(
             cookie_row,
             text="브라우저 쿠키 사용",
             variable=self.use_cookies_var,
             font=self.font_body,
             checkbox_width=24,
             checkbox_height=24,
-        ).grid(row=0, column=0, padx=14, pady=12, sticky="w")
-        ctk.CTkComboBox(
+        )
+        self.use_cookies_checkbox.grid(row=0, column=0, padx=14, pady=12, sticky="w")
+        self.cookie_browser_combo = ctk.CTkComboBox(
             cookie_row,
             variable=self.cookie_browser_var,
             values=["chrome", "edge", "firefox", "brave", "opera"],
@@ -404,7 +408,8 @@ class ClipNoteApp(ctk.CTk):
             font=self.font_input,
             dropdown_font=self.font_input,
             corner_radius=7,
-        ).grid(row=0, column=1, padx=(0, 14), pady=12, sticky="e")
+        )
+        self.cookie_browser_combo.grid(row=0, column=1, padx=(0, 14), pady=12, sticky="e")
 
         self.file_panel = ctk.CTkFrame(card, fg_color="#f6f8fb", corner_radius=8)
         self.file_panel.grid_columnconfigure(0, weight=1)
@@ -417,15 +422,16 @@ class ClipNoteApp(ctk.CTk):
         file_row = ctk.CTkFrame(self.file_panel, fg_color="transparent")
         file_row.grid(row=1, column=0, padx=16, pady=(0, 16), sticky="ew")
         file_row.grid_columnconfigure(0, weight=1)
-        ctk.CTkEntry(
+        self.file_entry = ctk.CTkEntry(
             file_row,
             textvariable=self.file_var,
             placeholder_text="mp4, mov, mkv, avi, webm 파일",
             height=40,
             font=self.font_input,
             corner_radius=7,
-        ).grid(row=0, column=0, sticky="ew", padx=(0, 10))
-        ctk.CTkButton(
+        )
+        self.file_entry.grid(row=0, column=0, sticky="ew", padx=(0, 10))
+        self.file_button = ctk.CTkButton(
             file_row,
             text="파일 선택",
             width=118,
@@ -435,7 +441,8 @@ class ClipNoteApp(ctk.CTk):
             fg_color=self.primary_color,
             hover_color=self.primary_hover,
             command=self._choose_video_file,
-        ).grid(row=0, column=1, sticky="e")
+        )
+        self.file_button.grid(row=0, column=1, sticky="e")
 
         self._refresh_source_mode()
         return card
@@ -452,6 +459,27 @@ class ClipNoteApp(ctk.CTk):
 
     def _is_url_mode(self) -> bool:
         return self.source_type.get() != SOURCE_FILE_MODE
+
+    def _register_processing_controls(self) -> None:
+        self.processing_locked_widgets = [
+            self.source_mode_switch,
+            self.url_entry,
+            self.use_cookies_checkbox,
+            self.cookie_browser_combo,
+            self.file_entry,
+            self.file_button,
+            self.api_key_entry,
+            self.api_key_lock_button,
+            self.save_api_key_checkbox,
+            self.transcription_model_combo,
+            self.text_model_combo,
+            self.output_dir_entry,
+            self.output_dir_button,
+            self.auto_scene_checkbox,
+            self.fixed_scene_entry,
+            self.min_scene_entry,
+            self.max_scene_entry,
+        ]
 
     def _api_card(self, parent: ctk.CTkBaseClass) -> ctk.CTkFrame:
         card = self._card(parent, "2. OpenAI 설정")
@@ -481,14 +509,15 @@ class ClipNoteApp(ctk.CTk):
             command=self._toggle_api_key_lock,
         )
         self.api_key_lock_button.grid(row=0, column=1)
-        ctk.CTkCheckBox(
+        self.save_api_key_checkbox = ctk.CTkCheckBox(
             card,
             text="이 PC에 API 키 저장",
             variable=self.save_api_key_var,
             font=self.font_body,
             checkbox_width=24,
             checkbox_height=24,
-        ).grid(row=3, column=0, padx=22, pady=(0, 18), sticky="w")
+        )
+        self.save_api_key_checkbox.grid(row=3, column=0, padx=22, pady=(0, 18), sticky="w")
 
         model_grid = ctk.CTkFrame(card, fg_color="transparent")
         model_grid.grid(row=4, column=0, padx=22, pady=(0, 22), sticky="ew")
@@ -499,7 +528,7 @@ class ClipNoteApp(ctk.CTk):
         ctk.CTkLabel(model_grid, text="문장/장면 모델", font=self.font_label, text_color="#334155").grid(
             row=0, column=1, padx=(12, 0), sticky="w"
         )
-        ctk.CTkComboBox(
+        self.transcription_model_combo = ctk.CTkComboBox(
             model_grid,
             variable=self.transcription_model_var,
             values=["gpt-4o-mini-transcribe", "gpt-4o-transcribe"],
@@ -507,8 +536,9 @@ class ClipNoteApp(ctk.CTk):
             font=self.font_input,
             dropdown_font=self.font_input,
             corner_radius=7,
-        ).grid(row=1, column=0, sticky="ew", pady=(7, 0), padx=(0, 12))
-        ctk.CTkComboBox(
+        )
+        self.transcription_model_combo.grid(row=1, column=0, sticky="ew", pady=(7, 0), padx=(0, 12))
+        self.text_model_combo = ctk.CTkComboBox(
             model_grid,
             variable=self.text_model_var,
             values=["gpt-5-nano", "gpt-5.4-nano", "gpt-5.4-mini", "gpt-4.1-mini"],
@@ -516,7 +546,8 @@ class ClipNoteApp(ctk.CTk):
             font=self.font_input,
             dropdown_font=self.font_input,
             corner_radius=7,
-        ).grid(row=1, column=1, sticky="ew", pady=(7, 0), padx=(12, 0))
+        )
+        self.text_model_combo.grid(row=1, column=1, sticky="ew", pady=(7, 0), padx=(12, 0))
         self._refresh_api_key_lock()
         return card
 
@@ -525,14 +556,15 @@ class ClipNoteApp(ctk.CTk):
         output_row = ctk.CTkFrame(card, fg_color="transparent")
         output_row.grid(row=1, column=0, padx=22, pady=(0, 16), sticky="ew")
         output_row.grid_columnconfigure(0, weight=1)
-        ctk.CTkEntry(
+        self.output_dir_entry = ctk.CTkEntry(
             output_row,
             textvariable=self.output_dir_var,
             height=38,
             font=self.font_input,
             corner_radius=7,
-        ).grid(row=0, column=0, sticky="ew", padx=(0, 10))
-        ctk.CTkButton(
+        )
+        self.output_dir_entry.grid(row=0, column=0, sticky="ew", padx=(0, 10))
+        self.output_dir_button = ctk.CTkButton(
             output_row,
             text="폴더 선택",
             width=118,
@@ -542,12 +574,13 @@ class ClipNoteApp(ctk.CTk):
             fg_color=self.primary_color,
             hover_color=self.primary_hover,
             command=self._choose_output_dir,
-        ).grid(row=0, column=1)
+        )
+        self.output_dir_button.grid(row=0, column=1)
 
         scene_box = ctk.CTkFrame(card, fg_color="#f6f8fb", corner_radius=8)
         scene_box.grid(row=2, column=0, padx=22, pady=(0, 20), sticky="ew")
         scene_box.grid_columnconfigure((0, 1, 2), weight=1)
-        ctk.CTkCheckBox(
+        self.auto_scene_checkbox = ctk.CTkCheckBox(
             scene_box,
             text="장면 수 자동 결정",
             variable=self.auto_scene_var,
@@ -555,7 +588,8 @@ class ClipNoteApp(ctk.CTk):
             font=self.font_body,
             checkbox_width=24,
             checkbox_height=24,
-        ).grid(row=0, column=0, padx=16, pady=(16, 10), sticky="w")
+        )
+        self.auto_scene_checkbox.grid(row=0, column=0, padx=16, pady=(16, 10), sticky="w")
 
         self.fixed_scene_label = ctk.CTkLabel(scene_box, text="직접 지정", font=self.font_label, text_color="#475569")
         self.fixed_scene_label.grid(
@@ -676,6 +710,8 @@ class ClipNoteApp(ctk.CTk):
         self.log_box.configure(state="disabled")
 
     def _choose_video_file(self) -> None:
+        if self.is_processing:
+            return
         path = filedialog.askopenfilename(
             title="동영상 파일 선택",
             filetypes=[
@@ -696,11 +732,15 @@ class ClipNoteApp(ctk.CTk):
                 pass
 
     def _choose_output_dir(self) -> None:
+        if self.is_processing:
+            return
         path = filedialog.askdirectory(title="출력 폴더 선택")
         if path:
             self.output_dir_var.set(path)
 
     def _toggle_api_key_lock(self) -> None:
+        if self.is_processing:
+            return
         if self.api_key_locked:
             self.api_key_locked = False
             self._refresh_api_key_lock()
@@ -720,9 +760,20 @@ class ClipNoteApp(ctk.CTk):
         if not hasattr(self, "api_key_entry") or not hasattr(self, "api_key_lock_button"):
             return
 
+        if self.is_processing:
+            self.api_key_entry.configure(state="disabled", fg_color="#edf2f7", border_color="#cbd5e1", text_color="#94a3b8")
+            self.api_key_lock_button.configure(
+                state="disabled",
+                fg_color=self.disabled_color,
+                hover_color=self.disabled_color,
+                text_color_disabled=self.disabled_text,
+            )
+            return
+
         if self.api_key_locked:
             self.api_key_entry.configure(state="disabled", fg_color="#f8fafc", border_color="#cbd5e1")
             self.api_key_lock_button.configure(
+                state="normal",
                 text="수정",
                 fg_color=self.warning_color,
                 hover_color=self.warning_hover,
@@ -731,6 +782,7 @@ class ClipNoteApp(ctk.CTk):
         else:
             self.api_key_entry.configure(state="normal", fg_color="#ffffff", border_color="#94a3b8")
             self.api_key_lock_button.configure(
+                state="normal",
                 text="설정",
                 fg_color=self.primary_color,
                 hover_color=self.primary_hover,
@@ -739,6 +791,16 @@ class ClipNoteApp(ctk.CTk):
 
     def _refresh_scene_count_mode(self) -> None:
         if not hasattr(self, "fixed_scene_entry"):
+            return
+
+        if self.is_processing:
+            for entry, label in (
+                (self.fixed_scene_entry, self.fixed_scene_label),
+                (self.min_scene_entry, self.min_scene_label),
+                (self.max_scene_entry, self.max_scene_label),
+            ):
+                entry.configure(state="disabled", fg_color="#edf2f7", border_color="#cbd5e1", text_color="#94a3b8")
+                label.configure(text_color="#94a3b8")
             return
 
         auto = bool(self.auto_scene_var.get())
@@ -768,6 +830,69 @@ class ClipNoteApp(ctk.CTk):
         else:
             self.activity_spinner.stop()
             self.activity_spinner.grid_remove()
+
+    def _set_widget_cursor(self, widget: object, cursor: str) -> None:
+        targets = [
+            widget,
+            getattr(widget, "_canvas", None),
+            getattr(widget, "_entry", None),
+            getattr(widget, "_button", None),
+            getattr(widget, "_text_label", None),
+            getattr(widget, "_check_state", None),
+        ]
+        for target in targets:
+            if target is None:
+                continue
+            try:
+                target.configure(cursor=cursor)
+            except (tk.TclError, AttributeError, ValueError):
+                pass
+
+    def _set_controls_locked(self, locked: bool) -> None:
+        cursor = "no" if locked else ""
+        for widget in self.processing_locked_widgets:
+            try:
+                widget.configure(state="disabled" if locked else "normal")
+            except (tk.TclError, ValueError):
+                pass
+            self._set_widget_cursor(widget, cursor)
+
+        if locked:
+            disabled_entry_options = {
+                "state": "disabled",
+                "fg_color": "#edf2f7",
+                "border_color": "#cbd5e1",
+                "text_color": "#94a3b8",
+            }
+            for entry in (self.url_entry, self.file_entry, self.output_dir_entry):
+                entry.configure(**disabled_entry_options)
+            for button in (self.file_button, self.output_dir_button):
+                button.configure(
+                    state="disabled",
+                    fg_color=self.disabled_color,
+                    hover_color=self.disabled_color,
+                    text_color_disabled=self.disabled_text,
+                )
+            for combo in (self.cookie_browser_combo, self.transcription_model_combo, self.text_model_combo):
+                combo.configure(state="disabled", fg_color="#edf2f7", border_color="#cbd5e1", button_color="#cbd5e1")
+            self._refresh_api_key_lock()
+            self._refresh_scene_count_mode()
+            return
+
+        for entry in (self.url_entry, self.file_entry, self.output_dir_entry):
+            entry.configure(state="normal", fg_color="#ffffff", border_color="#94a3b8", text_color="#111827")
+        for button in (self.file_button, self.output_dir_button):
+            button.configure(
+                state="normal",
+                fg_color=self.primary_color,
+                hover_color=self.primary_hover,
+                text_color="#ffffff",
+                text_color_disabled=self.disabled_text,
+            )
+        for combo in (self.cookie_browser_combo, self.transcription_model_combo, self.text_model_combo):
+            combo.configure(state="normal", fg_color="#ffffff", border_color="#94a3b8", button_color="#9ca3af")
+        self._refresh_api_key_lock()
+        self._refresh_scene_count_mode()
 
     def _set_start_button_busy(self, busy: bool) -> None:
         if busy:
@@ -860,6 +985,7 @@ class ClipNoteApp(ctk.CTk):
         self.latest_result = None
         self._set_output_button_enabled(False)
         self._set_start_button_busy(True)
+        self._set_controls_locked(True)
         self.progress_bar.set(0)
         self._set_status("시작합니다", 0.01)
         self._append_log("작업을 시작합니다.")
@@ -894,12 +1020,14 @@ class ClipNoteApp(ctk.CTk):
                 self._set_status("완료", 1.0)
                 self._append_log(f"완료: {self.latest_result.output_dir}")
                 self._set_start_button_busy(False)
+                self._set_controls_locked(False)
                 self._set_output_button_enabled(True)
                 messagebox.showinfo("완료", f"노트가 만들어졌습니다.\n\n{self.latest_result.output_dir}")
             elif kind == "error":
                 self._set_status("오류", 0)
                 self._append_log(str(payload))
                 self._set_start_button_busy(False)
+                self._set_controls_locked(False)
                 messagebox.showerror("처리 실패", str(payload).splitlines()[0])
         self.after(120, self._drain_events)
 
