@@ -35,9 +35,27 @@ class SmoothScrollableFrame(ctk.CTkScrollableFrame):
     scroll_ease = 0.16
 
     def __init__(self, *args: object, **kwargs: object) -> None:
+        self.scrollbar_gap = int(kwargs.pop("scrollbar_gap", 14))
+        self.scrollbar_outer_padding = int(kwargs.pop("scrollbar_outer_padding", 4))
         self._smooth_scroll_target_px: float | None = None
         self._smooth_scroll_after_id: str | None = None
         super().__init__(*args, **kwargs)
+        self._add_scrollbar_breathing_room()
+
+    def _add_scrollbar_breathing_room(self) -> None:
+        if self._orientation != "vertical":
+            return
+        border_spacing = self._apply_widget_scaling(
+            self._parent_frame.cget("corner_radius") + self._parent_frame.cget("border_width")
+        )
+        self._parent_canvas.grid_configure(
+            padx=(border_spacing, self._apply_widget_scaling(self.scrollbar_gap)),
+            pady=border_spacing,
+        )
+        self._scrollbar.grid_configure(
+            padx=(0, self._apply_widget_scaling(self.scrollbar_outer_padding)),
+            pady=(border_spacing, border_spacing),
+        )
 
     def destroy(self) -> None:
         if self._smooth_scroll_after_id is not None:
@@ -704,6 +722,9 @@ class ClipNoteApp(ctk.CTk):
             font=self.font_log,
             corner_radius=8,
             border_width=0,
+            border_spacing=12,
+            scrollbar_button_color="#475569",
+            scrollbar_button_hover_color="#64748b",
         )
         self.log_box.grid(row=3, column=0, padx=22, pady=(0, 22), sticky="nsew")
         self.log_box.insert("end", "준비되었습니다.\n")
