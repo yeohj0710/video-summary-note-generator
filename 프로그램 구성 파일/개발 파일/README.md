@@ -86,7 +86,7 @@ video-summary-note-generator/
 
 ## OpenAI 모델
 
-전사 기본값은 `gpt-4o-mini-transcribe`입니다. 문장 정리와 주요 화면 선택은 기본적으로 `gpt-4.1-mini`를 사용합니다. 프로그램 화면에서 필요한 경우 다른 모델명으로 바꿀 수 있습니다.
+전사 기본값은 `gpt-4o-mini-transcribe`입니다. 문장 정리와 주요 화면 선택은 비용 효율을 위해 기본적으로 `gpt-5-nano`를 사용합니다. 더 좋은 품질이 필요하면 프로그램 화면에서 `gpt-5.4-mini` 같은 상위 모델로 바꿀 수 있습니다.
 
 ## Reels 다운로드 참고
 

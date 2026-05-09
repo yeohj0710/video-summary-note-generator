@@ -8,6 +8,7 @@ from pathlib import Path
 
 
 APP_NAME = "VideoSummaryNoteGenerator"
+DEFAULT_TEXT_MODEL = "gpt-5-nano"
 
 
 @dataclass
@@ -15,7 +16,7 @@ class AppSettings:
     api_key: str = ""
     save_api_key: bool = False
     transcription_model: str = "gpt-4o-mini-transcribe"
-    text_model: str = "gpt-4.1-mini"
+    text_model: str = DEFAULT_TEXT_MODEL
     output_dir: str = ""
     auto_scene_count: bool = True
     fixed_scene_count: int = 10
@@ -58,6 +59,8 @@ def load_settings() -> AppSettings:
 
     if not settings.output_dir:
         settings.output_dir = str(default_output_dir())
+    if settings.text_model == "gpt-4.1-mini":
+        settings.text_model = DEFAULT_TEXT_MODEL
     if not settings.save_api_key:
         settings.api_key = ""
     return settings

@@ -13,7 +13,7 @@ import tkinter as tk
 import customtkinter as ctk
 
 from clipnote_ai.pipeline import PipelineResult, VideoNotePipeline
-from clipnote_ai.settings import AppSettings, default_output_dir, load_settings, save_settings
+from clipnote_ai.settings import DEFAULT_TEXT_MODEL, AppSettings, default_output_dir, load_settings, save_settings
 from clipnote_ai.utils import resource_path
 
 
@@ -23,9 +23,9 @@ PRODUCT_NAME = "동영상 요약 노트 생성기"
 
 
 class SmoothScrollableFrame(ctk.CTkScrollableFrame):
-    scroll_pixels_per_notch = 280
-    scroll_frame_delay_ms = 8
-    scroll_ease = 0.32
+    scroll_pixels_per_notch = 92
+    scroll_frame_delay_ms = 10
+    scroll_ease = 0.24
 
     def __init__(self, *args: object, **kwargs: object) -> None:
         self._smooth_scroll_target_px: float | None = None
@@ -416,7 +416,7 @@ class ClipNoteApp(ctk.CTk):
         ctk.CTkComboBox(
             model_grid,
             variable=self.text_model_var,
-            values=["gpt-4.1-mini", "gpt-4o-mini", "gpt-5.4-mini", "gpt-5.4"],
+            values=["gpt-5-nano", "gpt-5.4-nano", "gpt-5.4-mini", "gpt-4.1-mini"],
             height=38,
             font=self.font_input,
             dropdown_font=self.font_input,
@@ -580,7 +580,7 @@ class ClipNoteApp(ctk.CTk):
             api_key=self.api_key_var.get().strip(),
             save_api_key=bool(self.save_api_key_var.get()),
             transcription_model=self.transcription_model_var.get().strip() or "gpt-4o-mini-transcribe",
-            text_model=self.text_model_var.get().strip() or "gpt-4.1-mini",
+            text_model=self.text_model_var.get().strip() or DEFAULT_TEXT_MODEL,
             output_dir=self.output_dir_var.get().strip() or str(default_output_dir()),
             auto_scene_count=bool(self.auto_scene_var.get()),
             fixed_scene_count=fixed_scene,
