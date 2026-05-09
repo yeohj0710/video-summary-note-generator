@@ -164,16 +164,15 @@ class VideoNotePipeline:
         import yt_dlp
 
         outtmpl = str(downloads_dir / f"{started}_%(title).90s.%(ext)s")
-        ffmpeg_dir = str(self.ffmpeg.parent)
         ydl_opts: dict[str, object] = {
-            "format": "bv*+ba/b",
+            "format": "best[ext=mp4][vcodec!=none][acodec!=none]/best[vcodec!=none][acodec!=none]/bv*+ba/b",
             "outtmpl": outtmpl,
             "merge_output_format": "mp4",
             "noplaylist": True,
             "quiet": True,
             "no_warnings": True,
             "windowsfilenames": True,
-            "ffmpeg_location": ffmpeg_dir,
+            "ffmpeg_location": str(self.ffmpeg),
         }
         if self.settings.use_browser_cookies:
             ydl_opts["cookiesfrombrowser"] = (self.settings.cookie_browser,)

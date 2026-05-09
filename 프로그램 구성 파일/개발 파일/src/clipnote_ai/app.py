@@ -126,6 +126,18 @@ class SmoothScrollableFrame(ctk.CTkScrollableFrame):
 
 
 class ClipNoteApp(ctk.CTk):
+    primary_color = "#2563eb"
+    primary_hover = "#1d4ed8"
+    secondary_color = "#eef4ff"
+    secondary_hover = "#dbeafe"
+    secondary_text = "#1d4ed8"
+    success_color = "#059669"
+    success_hover = "#047857"
+    warning_color = "#f59e0b"
+    warning_hover = "#d97706"
+    disabled_color = "#d8dee8"
+    disabled_text = "#64748b"
+
     def __init__(self) -> None:
         super().__init__()
         ctk.set_appearance_mode("light")
@@ -234,8 +246,9 @@ class ClipNoteApp(ctk.CTk):
             height=40,
             corner_radius=8,
             font=self.font_button,
-            fg_color="#334155",
-            hover_color="#1f2937",
+            fg_color=self.secondary_color,
+            hover_color=self.secondary_hover,
+            text_color=self.secondary_text,
             command=self._open_user_guide,
         ).grid(row=0, column=1, rowspan=3, padx=(12, 32), pady=26, sticky="e")
 
@@ -287,8 +300,8 @@ class ClipNoteApp(ctk.CTk):
             corner_radius=8,
             font=self.font_button,
             fg_color="#e2e8f0",
-            selected_color="#bfdbfe",
-            selected_hover_color="#93c5fd",
+            selected_color="#93c5fd",
+            selected_hover_color="#60a5fa",
             unselected_color="#f8fafc",
             unselected_hover_color="#edf2f7",
             text_color="#1f2937",
@@ -361,6 +374,8 @@ class ClipNoteApp(ctk.CTk):
             height=40,
             corner_radius=7,
             font=self.font_button,
+            fg_color=self.primary_color,
+            hover_color=self.primary_hover,
             command=self._choose_video_file,
         ).grid(row=0, column=1, sticky="e")
 
@@ -466,6 +481,8 @@ class ClipNoteApp(ctk.CTk):
             height=38,
             corner_radius=7,
             font=self.font_button,
+            fg_color=self.primary_color,
+            hover_color=self.primary_hover,
             command=self._choose_output_dir,
         ).grid(row=0, column=1)
 
@@ -530,6 +547,10 @@ class ClipNoteApp(ctk.CTk):
             height=46,
             corner_radius=8,
             font=ctk.CTkFont(family=self.font_family, size=16, weight="bold"),
+            fg_color=self.primary_color,
+            hover_color=self.primary_hover,
+            text_color="#ffffff",
+            text_color_disabled=self.disabled_text,
             command=self._start_job,
         )
         self.start_button.grid(row=0, column=0, sticky="ew", padx=(0, 10))
@@ -541,8 +562,10 @@ class ClipNoteApp(ctk.CTk):
             state="disabled",
             corner_radius=8,
             font=self.font_button,
-            fg_color="#334155",
-            hover_color="#1f2937",
+            fg_color=self.disabled_color,
+            hover_color=self.disabled_color,
+            text_color="#ffffff",
+            text_color_disabled=self.disabled_text,
             command=self._open_latest_output,
         )
         self.open_output_button.grid(row=0, column=1, sticky="e")
@@ -617,10 +640,53 @@ class ClipNoteApp(ctk.CTk):
 
         if self.api_key_locked:
             self.api_key_entry.configure(state="disabled", fg_color="#f8fafc", border_color="#cbd5e1")
-            self.api_key_lock_button.configure(text="수정", fg_color="#334155", hover_color="#1e293b")
+            self.api_key_lock_button.configure(
+                text="수정",
+                fg_color=self.warning_color,
+                hover_color=self.warning_hover,
+                text_color="#ffffff",
+            )
         else:
             self.api_key_entry.configure(state="normal", fg_color="#ffffff", border_color="#94a3b8")
-            self.api_key_lock_button.configure(text="설정", fg_color="#3b8ed0", hover_color="#36719f")
+            self.api_key_lock_button.configure(
+                text="설정",
+                fg_color=self.primary_color,
+                hover_color=self.primary_hover,
+                text_color="#ffffff",
+            )
+
+    def _set_start_button_busy(self, busy: bool) -> None:
+        if busy:
+            self.start_button.configure(
+                state="disabled",
+                text="처리 중...",
+                fg_color=self.disabled_color,
+                hover_color=self.disabled_color,
+            )
+        else:
+            self.start_button.configure(
+                state="normal",
+                text="노트 만들기",
+                fg_color=self.primary_color,
+                hover_color=self.primary_hover,
+                text_color="#ffffff",
+            )
+
+    def _set_output_button_enabled(self, enabled: bool) -> None:
+        if enabled:
+            self.open_output_button.configure(
+                state="normal",
+                fg_color=self.success_color,
+                hover_color=self.success_hover,
+                text_color="#ffffff",
+            )
+        else:
+            self.open_output_button.configure(
+                state="disabled",
+                fg_color=self.disabled_color,
+                hover_color=self.disabled_color,
+                text_color_disabled=self.disabled_text,
+            )
 
     def _collect_settings(self) -> AppSettings:
         def as_int(value: str, fallback: int, low: int, high: int) -> int:
@@ -674,8 +740,8 @@ class ClipNoteApp(ctk.CTk):
             return
 
         self.latest_result = None
-        self.open_output_button.configure(state="disabled")
-        self.start_button.configure(state="disabled", text="처리 중...")
+        self._set_output_button_enabled(False)
+        self._set_start_button_busy(True)
         self.progress_bar.set(0)
         self._set_status("시작합니다", 0.01)
         self._append_log("작업을 시작합니다.")
@@ -709,13 +775,13 @@ class ClipNoteApp(ctk.CTk):
                 self.latest_result = payload  # type: ignore[assignment]
                 self._set_status("완료", 1.0)
                 self._append_log(f"완료: {self.latest_result.output_dir}")
-                self.start_button.configure(state="normal", text="노트 만들기")
-                self.open_output_button.configure(state="normal")
+                self._set_start_button_busy(False)
+                self._set_output_button_enabled(True)
                 messagebox.showinfo("완료", f"노트가 만들어졌습니다.\n\n{self.latest_result.output_dir}")
             elif kind == "error":
                 self._set_status("오류", 0)
                 self._append_log(str(payload))
-                self.start_button.configure(state="normal", text="노트 만들기")
+                self._set_start_button_busy(False)
                 messagebox.showerror("처리 실패", str(payload).splitlines()[0])
         self.after(120, self._drain_events)
 
