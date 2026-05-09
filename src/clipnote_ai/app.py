@@ -7,7 +7,7 @@ import threading
 import traceback
 import webbrowser
 from pathlib import Path
-from tkinter import filedialog, messagebox
+from tkinter import filedialog, font as tkfont, messagebox
 import tkinter as tk
 
 import customtkinter as ctk
@@ -23,8 +23,8 @@ class ClipNoteApp(ctk.CTk):
         ctk.set_default_color_theme("blue")
 
         self.title("ClipNote AI")
-        self.geometry("1060x760")
-        self.minsize(940, 680)
+        self.geometry("1160x820")
+        self.minsize(1080, 740)
 
         self.settings = load_settings()
         self.worker_thread: threading.Thread | None = None
@@ -46,9 +46,30 @@ class ClipNoteApp(ctk.CTk):
         self.use_cookies_var = tk.BooleanVar(value=self.settings.use_browser_cookies)
         self.cookie_browser_var = tk.StringVar(value=self.settings.cookie_browser)
 
+        self._configure_typography()
         self._build_ui()
         self.after(120, self._drain_events)
         self.protocol("WM_DELETE_WINDOW", self._on_close)
+
+    def _configure_typography(self) -> None:
+        available = set(tkfont.families(self))
+        for candidate in ("Pretendard", "맑은 고딕", "Malgun Gothic", "Segoe UI"):
+            if candidate in available:
+                self.font_family = candidate
+                break
+        else:
+            self.font_family = "Segoe UI"
+
+        self.option_add("*Font", f"{{{self.font_family}}} 11")
+        self.font_title = ctk.CTkFont(family=self.font_family, size=32, weight="bold")
+        self.font_subtitle = ctk.CTkFont(family=self.font_family, size=15)
+        self.font_card_title = ctk.CTkFont(family=self.font_family, size=19, weight="bold")
+        self.font_section_title = ctk.CTkFont(family=self.font_family, size=18, weight="bold")
+        self.font_body = ctk.CTkFont(family=self.font_family, size=14)
+        self.font_label = ctk.CTkFont(family=self.font_family, size=13)
+        self.font_button = ctk.CTkFont(family=self.font_family, size=14, weight="bold")
+        self.font_input = ctk.CTkFont(family=self.font_family, size=14)
+        self.font_log = ctk.CTkFont(family=self.font_family, size=13)
 
     def _build_ui(self) -> None:
         self.grid_columnconfigure(0, weight=1)
@@ -62,38 +83,41 @@ class ClipNoteApp(ctk.CTk):
         title = ctk.CTkLabel(
             header,
             text="ClipNote AI",
-            font=ctk.CTkFont(size=30, weight="bold"),
+            font=self.font_title,
             text_color="#111827",
         )
-        title.grid(row=0, column=0, padx=28, pady=(22, 4), sticky="w")
+        title.grid(row=0, column=0, padx=32, pady=(24, 5), sticky="w")
         subtitle = ctk.CTkLabel(
             header,
             text="릴스, 유튜브, 로컬 동영상을 주요 장면 이미지와 한국어 노트로 변환합니다.",
-            font=ctk.CTkFont(size=15),
-            text_color="#64748b",
+            font=self.font_subtitle,
+            text_color="#475569",
         )
-        subtitle.grid(row=1, column=0, padx=28, pady=(0, 20), sticky="w")
+        subtitle.grid(row=1, column=0, padx=32, pady=(0, 22), sticky="w")
         ctk.CTkButton(
             header,
             text="사용설명서 열기",
-            width=140,
+            width=172,
+            height=40,
+            corner_radius=8,
+            font=self.font_button,
             fg_color="#334155",
             hover_color="#1f2937",
             command=self._open_user_guide,
-        ).grid(row=0, column=1, rowspan=2, padx=(10, 28), pady=24, sticky="e")
+        ).grid(row=0, column=1, rowspan=2, padx=(12, 32), pady=26, sticky="e")
 
-        body = ctk.CTkFrame(self, fg_color="#eef2f7", corner_radius=0)
+        body = ctk.CTkFrame(self, fg_color="#edf1f6", corner_radius=0)
         body.grid(row=1, column=0, sticky="nsew")
         body.grid_columnconfigure(0, weight=3)
         body.grid_columnconfigure(1, weight=2)
         body.grid_rowconfigure(0, weight=1)
 
-        left = ctk.CTkScrollableFrame(body, fg_color="#eef2f7")
-        left.grid(row=0, column=0, sticky="nsew", padx=(22, 10), pady=22)
+        left = ctk.CTkScrollableFrame(body, fg_color="#edf1f6")
+        left.grid(row=0, column=0, sticky="nsew", padx=(24, 12), pady=24)
         left.grid_columnconfigure(0, weight=1)
 
-        right = ctk.CTkFrame(body, fg_color="#ffffff", corner_radius=8)
-        right.grid(row=0, column=1, sticky="nsew", padx=(10, 22), pady=22)
+        right = ctk.CTkFrame(body, fg_color="#ffffff", corner_radius=10)
+        right.grid(row=0, column=1, sticky="nsew", padx=(12, 24), pady=24)
         right.grid_columnconfigure(0, weight=1)
         right.grid_rowconfigure(3, weight=1)
 
@@ -104,131 +128,249 @@ class ClipNoteApp(ctk.CTk):
         self._status_panel(right)
 
     def _card(self, parent: ctk.CTkBaseClass, title: str) -> ctk.CTkFrame:
-        card = ctk.CTkFrame(parent, fg_color="#ffffff", corner_radius=8)
+        card = ctk.CTkFrame(parent, fg_color="#ffffff", corner_radius=10)
         card.grid_columnconfigure(0, weight=1)
-        label = ctk.CTkLabel(card, text=title, font=ctk.CTkFont(size=18, weight="bold"), text_color="#111827")
-        label.grid(row=0, column=0, padx=20, pady=(18, 10), sticky="w")
+        label = ctk.CTkLabel(card, text=title, font=self.font_card_title, text_color="#111827")
+        label.grid(row=0, column=0, padx=22, pady=(20, 12), sticky="w")
         return card
 
     def _source_card(self, parent: ctk.CTkBaseClass) -> ctk.CTkFrame:
         card = self._card(parent, "1. 영상 선택")
         mode_row = ctk.CTkFrame(card, fg_color="transparent")
-        mode_row.grid(row=1, column=0, padx=20, pady=(0, 12), sticky="ew")
+        mode_row.grid(row=1, column=0, padx=22, pady=(0, 14), sticky="ew")
         mode_row.grid_columnconfigure((0, 1), weight=1)
 
-        ctk.CTkRadioButton(mode_row, text="URL로 가져오기", variable=self.source_type, value="url").grid(
+        ctk.CTkRadioButton(
+            mode_row,
+            text="URL로 가져오기",
+            variable=self.source_type,
+            value="url",
+            font=self.font_body,
+            radiobutton_width=24,
+            radiobutton_height=24,
+        ).grid(
             row=0, column=0, sticky="w"
         )
-        ctk.CTkRadioButton(mode_row, text="내 컴퓨터 파일", variable=self.source_type, value="file").grid(
+        ctk.CTkRadioButton(
+            mode_row,
+            text="내 컴퓨터 파일",
+            variable=self.source_type,
+            value="file",
+            font=self.font_body,
+            radiobutton_width=24,
+            radiobutton_height=24,
+        ).grid(
             row=0, column=1, sticky="w"
         )
 
-        url_label = ctk.CTkLabel(card, text="릴스 또는 유튜브 링크", text_color="#334155")
-        url_label.grid(row=2, column=0, padx=20, pady=(0, 6), sticky="w")
-        url_entry = ctk.CTkEntry(card, textvariable=self.url_var, placeholder_text="https://www.youtube.com/watch?v=...")
-        url_entry.grid(row=3, column=0, padx=20, pady=(0, 14), sticky="ew")
+        url_label = ctk.CTkLabel(card, text="릴스 또는 유튜브 링크", font=self.font_label, text_color="#334155")
+        url_label.grid(row=2, column=0, padx=22, pady=(0, 7), sticky="w")
+        url_entry = ctk.CTkEntry(
+            card,
+            textvariable=self.url_var,
+            placeholder_text="https://www.youtube.com/watch?v=...",
+            height=38,
+            font=self.font_input,
+            corner_radius=7,
+        )
+        url_entry.grid(row=3, column=0, padx=22, pady=(0, 14), sticky="ew")
 
         file_row = ctk.CTkFrame(card, fg_color="transparent")
-        file_row.grid(row=4, column=0, padx=20, pady=(0, 14), sticky="ew")
+        file_row.grid(row=4, column=0, padx=22, pady=(0, 14), sticky="ew")
         file_row.grid_columnconfigure(0, weight=1)
-        ctk.CTkEntry(file_row, textvariable=self.file_var, placeholder_text="동영상 파일 경로").grid(
-            row=0, column=0, sticky="ew", padx=(0, 8)
+        ctk.CTkEntry(
+            file_row,
+            textvariable=self.file_var,
+            placeholder_text="동영상 파일 경로",
+            height=38,
+            font=self.font_input,
+            corner_radius=7,
+        ).grid(
+            row=0, column=0, sticky="ew", padx=(0, 10)
         )
-        ctk.CTkButton(file_row, text="파일 선택", width=110, command=self._choose_video_file).grid(
+        ctk.CTkButton(
+            file_row,
+            text="파일 선택",
+            width=118,
+            height=38,
+            corner_radius=7,
+            font=self.font_button,
+            command=self._choose_video_file,
+        ).grid(
             row=0, column=1, sticky="e"
         )
 
-        cookie_row = ctk.CTkFrame(card, fg_color="#f8fafc", corner_radius=8)
-        cookie_row.grid(row=5, column=0, padx=20, pady=(0, 20), sticky="ew")
+        cookie_row = ctk.CTkFrame(card, fg_color="#f6f8fb", corner_radius=8)
+        cookie_row.grid(row=5, column=0, padx=22, pady=(0, 22), sticky="ew")
         cookie_row.grid_columnconfigure(1, weight=1)
         ctk.CTkCheckBox(
             cookie_row,
             text="브라우저 쿠키 사용",
             variable=self.use_cookies_var,
-        ).grid(row=0, column=0, padx=14, pady=12, sticky="w")
+            font=self.font_body,
+            checkbox_width=24,
+            checkbox_height=24,
+        ).grid(row=0, column=0, padx=16, pady=14, sticky="w")
         ctk.CTkComboBox(
             cookie_row,
             variable=self.cookie_browser_var,
             values=["chrome", "edge", "firefox", "brave", "opera"],
-            width=130,
-        ).grid(row=0, column=1, padx=(0, 14), pady=12, sticky="e")
+            width=150,
+            height=36,
+            font=self.font_input,
+            dropdown_font=self.font_input,
+            corner_radius=7,
+        ).grid(row=0, column=1, padx=(0, 16), pady=14, sticky="e")
         return card
 
     def _api_card(self, parent: ctk.CTkBaseClass) -> ctk.CTkFrame:
         card = self._card(parent, "2. OpenAI 설정")
-        ctk.CTkLabel(card, text="API 키", text_color="#334155").grid(row=1, column=0, padx=20, pady=(0, 6), sticky="w")
-        ctk.CTkEntry(card, textvariable=self.api_key_var, show="*", placeholder_text="sk-...").grid(
-            row=2, column=0, padx=20, pady=(0, 10), sticky="ew"
+        ctk.CTkLabel(card, text="API 키", font=self.font_label, text_color="#334155").grid(
+            row=1, column=0, padx=22, pady=(0, 7), sticky="w"
+        )
+        ctk.CTkEntry(
+            card,
+            textvariable=self.api_key_var,
+            show="*",
+            placeholder_text="sk-...",
+            height=38,
+            font=self.font_input,
+            corner_radius=7,
+        ).grid(
+            row=2, column=0, padx=22, pady=(0, 12), sticky="ew"
         )
         ctk.CTkCheckBox(
             card,
             text="이 PC에 API 키 저장",
             variable=self.save_api_key_var,
-        ).grid(row=3, column=0, padx=20, pady=(0, 14), sticky="w")
+            font=self.font_body,
+            checkbox_width=24,
+            checkbox_height=24,
+        ).grid(row=3, column=0, padx=22, pady=(0, 18), sticky="w")
 
         model_grid = ctk.CTkFrame(card, fg_color="transparent")
-        model_grid.grid(row=4, column=0, padx=20, pady=(0, 20), sticky="ew")
+        model_grid.grid(row=4, column=0, padx=22, pady=(0, 22), sticky="ew")
         model_grid.grid_columnconfigure((0, 1), weight=1)
-        ctk.CTkLabel(model_grid, text="전사 모델", text_color="#334155").grid(row=0, column=0, sticky="w")
-        ctk.CTkLabel(model_grid, text="문장/요약 모델", text_color="#334155").grid(row=0, column=1, padx=(10, 0), sticky="w")
+        ctk.CTkLabel(model_grid, text="전사 모델", font=self.font_label, text_color="#334155").grid(
+            row=0, column=0, sticky="w"
+        )
+        ctk.CTkLabel(model_grid, text="문장/요약 모델", font=self.font_label, text_color="#334155").grid(
+            row=0, column=1, padx=(12, 0), sticky="w"
+        )
         ctk.CTkComboBox(
             model_grid,
             variable=self.transcription_model_var,
             values=["gpt-4o-mini-transcribe", "gpt-4o-transcribe"],
-        ).grid(row=1, column=0, sticky="ew", pady=(6, 0), padx=(0, 10))
+            height=38,
+            font=self.font_input,
+            dropdown_font=self.font_input,
+            corner_radius=7,
+        ).grid(row=1, column=0, sticky="ew", pady=(7, 0), padx=(0, 12))
         ctk.CTkComboBox(
             model_grid,
             variable=self.text_model_var,
             values=["gpt-4.1-mini", "gpt-4o-mini", "gpt-5.4-mini", "gpt-5.4"],
-        ).grid(row=1, column=1, sticky="ew", pady=(6, 0), padx=(10, 0))
+            height=38,
+            font=self.font_input,
+            dropdown_font=self.font_input,
+            corner_radius=7,
+        ).grid(row=1, column=1, sticky="ew", pady=(7, 0), padx=(12, 0))
         return card
 
     def _output_card(self, parent: ctk.CTkBaseClass) -> ctk.CTkFrame:
         card = self._card(parent, "3. 출력 설정")
         output_row = ctk.CTkFrame(card, fg_color="transparent")
-        output_row.grid(row=1, column=0, padx=20, pady=(0, 14), sticky="ew")
+        output_row.grid(row=1, column=0, padx=22, pady=(0, 16), sticky="ew")
         output_row.grid_columnconfigure(0, weight=1)
-        ctk.CTkEntry(output_row, textvariable=self.output_dir_var).grid(row=0, column=0, sticky="ew", padx=(0, 8))
-        ctk.CTkButton(output_row, text="폴더 선택", width=110, command=self._choose_output_dir).grid(row=0, column=1)
+        ctk.CTkEntry(
+            output_row,
+            textvariable=self.output_dir_var,
+            height=38,
+            font=self.font_input,
+            corner_radius=7,
+        ).grid(row=0, column=0, sticky="ew", padx=(0, 10))
+        ctk.CTkButton(
+            output_row,
+            text="폴더 선택",
+            width=118,
+            height=38,
+            corner_radius=7,
+            font=self.font_button,
+            command=self._choose_output_dir,
+        ).grid(row=0, column=1)
 
-        scene_box = ctk.CTkFrame(card, fg_color="#f8fafc", corner_radius=8)
-        scene_box.grid(row=2, column=0, padx=20, pady=(0, 18), sticky="ew")
+        scene_box = ctk.CTkFrame(card, fg_color="#f6f8fb", corner_radius=8)
+        scene_box.grid(row=2, column=0, padx=22, pady=(0, 20), sticky="ew")
         scene_box.grid_columnconfigure((0, 1, 2), weight=1)
         ctk.CTkCheckBox(
             scene_box,
             text="장면 수 자동 결정",
             variable=self.auto_scene_var,
-        ).grid(row=0, column=0, padx=14, pady=(14, 8), sticky="w")
+            font=self.font_body,
+            checkbox_width=24,
+            checkbox_height=24,
+        ).grid(row=0, column=0, padx=16, pady=(16, 10), sticky="w")
 
-        ctk.CTkLabel(scene_box, text="직접 지정", text_color="#475569").grid(row=1, column=0, padx=14, pady=(0, 6), sticky="w")
-        ctk.CTkEntry(scene_box, textvariable=self.fixed_scene_var, width=90).grid(
-            row=2, column=0, padx=14, pady=(0, 14), sticky="w"
+        ctk.CTkLabel(scene_box, text="직접 지정", font=self.font_label, text_color="#475569").grid(
+            row=1, column=0, padx=16, pady=(0, 7), sticky="w"
         )
-        ctk.CTkLabel(scene_box, text="자동 최소", text_color="#475569").grid(row=1, column=1, padx=14, pady=(0, 6), sticky="w")
-        ctk.CTkEntry(scene_box, textvariable=self.min_scene_var, width=90).grid(
-            row=2, column=1, padx=14, pady=(0, 14), sticky="w"
+        ctk.CTkEntry(
+            scene_box,
+            textvariable=self.fixed_scene_var,
+            width=96,
+            height=36,
+            font=self.font_input,
+            corner_radius=7,
+        ).grid(
+            row=2, column=0, padx=16, pady=(0, 16), sticky="w"
         )
-        ctk.CTkLabel(scene_box, text="자동 최대", text_color="#475569").grid(row=1, column=2, padx=14, pady=(0, 6), sticky="w")
-        ctk.CTkEntry(scene_box, textvariable=self.max_scene_var, width=90).grid(
-            row=2, column=2, padx=14, pady=(0, 14), sticky="w"
+        ctk.CTkLabel(scene_box, text="자동 최소", font=self.font_label, text_color="#475569").grid(
+            row=1, column=1, padx=16, pady=(0, 7), sticky="w"
+        )
+        ctk.CTkEntry(
+            scene_box,
+            textvariable=self.min_scene_var,
+            width=96,
+            height=36,
+            font=self.font_input,
+            corner_radius=7,
+        ).grid(
+            row=2, column=1, padx=16, pady=(0, 16), sticky="w"
+        )
+        ctk.CTkLabel(scene_box, text="자동 최대", font=self.font_label, text_color="#475569").grid(
+            row=1, column=2, padx=16, pady=(0, 7), sticky="w"
+        )
+        ctk.CTkEntry(
+            scene_box,
+            textvariable=self.max_scene_var,
+            width=96,
+            height=36,
+            font=self.font_input,
+            corner_radius=7,
+        ).grid(
+            row=2, column=2, padx=16, pady=(0, 16), sticky="w"
         )
 
         action_row = ctk.CTkFrame(card, fg_color="transparent")
-        action_row.grid(row=3, column=0, padx=20, pady=(0, 22), sticky="ew")
+        action_row.grid(row=3, column=0, padx=22, pady=(0, 24), sticky="ew")
         action_row.grid_columnconfigure(0, weight=1)
         self.start_button = ctk.CTkButton(
             action_row,
             text="노트 만들기",
-            height=44,
-            font=ctk.CTkFont(size=16, weight="bold"),
+            height=46,
+            corner_radius=8,
+            font=ctk.CTkFont(family=self.font_family, size=16, weight="bold"),
             command=self._start_job,
         )
-        self.start_button.grid(row=0, column=0, sticky="ew", padx=(0, 8))
+        self.start_button.grid(row=0, column=0, sticky="ew", padx=(0, 10))
         self.open_output_button = ctk.CTkButton(
             action_row,
             text="결과 폴더 열기",
-            width=130,
+            width=146,
+            height=46,
             state="disabled",
+            corner_radius=8,
+            font=self.font_button,
             fg_color="#334155",
             hover_color="#1f2937",
             command=self._open_latest_output,
@@ -237,16 +379,24 @@ class ClipNoteApp(ctk.CTk):
         return card
 
     def _status_panel(self, parent: ctk.CTkFrame) -> None:
-        ctk.CTkLabel(parent, text="진행 상황", font=ctk.CTkFont(size=18, weight="bold")).grid(
-            row=0, column=0, padx=20, pady=(20, 8), sticky="w"
+        ctk.CTkLabel(parent, text="진행 상황", font=self.font_section_title, text_color="#111827").grid(
+            row=0, column=0, padx=22, pady=(22, 10), sticky="w"
         )
-        self.status_label = ctk.CTkLabel(parent, text="대기 중", text_color="#334155", font=ctk.CTkFont(size=15))
-        self.status_label.grid(row=1, column=0, padx=20, pady=(0, 10), sticky="w")
-        self.progress_bar = ctk.CTkProgressBar(parent)
-        self.progress_bar.grid(row=2, column=0, padx=20, pady=(0, 16), sticky="ew")
+        self.status_label = ctk.CTkLabel(parent, text="대기 중", text_color="#334155", font=self.font_body)
+        self.status_label.grid(row=1, column=0, padx=22, pady=(0, 10), sticky="w")
+        self.progress_bar = ctk.CTkProgressBar(parent, height=10, corner_radius=5)
+        self.progress_bar.grid(row=2, column=0, padx=22, pady=(0, 18), sticky="ew")
         self.progress_bar.set(0)
-        self.log_box = ctk.CTkTextbox(parent, wrap="word", fg_color="#0f172a", text_color="#e5e7eb")
-        self.log_box.grid(row=3, column=0, padx=20, pady=(0, 20), sticky="nsew")
+        self.log_box = ctk.CTkTextbox(
+            parent,
+            wrap="word",
+            fg_color="#101827",
+            text_color="#f1f5f9",
+            font=self.font_log,
+            corner_radius=8,
+            border_width=0,
+        )
+        self.log_box.grid(row=3, column=0, padx=22, pady=(0, 22), sticky="nsew")
         self.log_box.insert("end", "준비되었습니다.\n")
         self.log_box.configure(state="disabled")
 
