@@ -673,7 +673,7 @@ class ClipNoteApp(ctk.CTk):
             pipeline = VideoNotePipeline(settings, progress=self._worker_progress)
             result = pipeline.run(source)
             self.events.put(("done", result))
-        except Exception as exc:
+        except BaseException as exc:
             detail = traceback.format_exc()
             self.events.put(("error", f"{exc}\n\n{detail}"))
 

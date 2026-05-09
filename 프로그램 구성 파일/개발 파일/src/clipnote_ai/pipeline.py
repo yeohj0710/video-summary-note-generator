@@ -3,7 +3,7 @@
 import html
 import json
 import os
-import shutil
+import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -91,7 +91,7 @@ class VideoNotePipeline:
         self.progress("준비 중", 0.02, "작업 폴더를 만들고 있습니다.")
 
         if self.is_url(source):
-            video_path, source_title = self._download_video(source, job_dir)
+            video_path, source_title = self._download_video(source, started)
             source_label = source
         else:
             video_path = Path(source).expanduser().resolve()
@@ -145,13 +145,24 @@ class VideoNotePipeline:
             scene_count=len(scenes),
         )
 
-    def _download_video(self, url: str, job_dir: Path) -> tuple[Path, str]:
-        self.progress("영상 다운로드 중", 0.05, "YouTube/Reels 공개 링크를 가져오고 있습니다.")
+    def _downloaded_videos_dir(self) -> Path:
+        if getattr(sys, "frozen", False):
+            root = Path(sys.executable).resolve().parent
+        else:
+            root = Path.cwd()
+        return root / "다운로드한 동영상"
+
+    def _download_video(self, url: str, started: str) -> tuple[Path, str]:
+        downloads_dir = self._downloaded_videos_dir()
+        downloads_dir.mkdir(parents=True, exist_ok=True)
+        self.progress(
+            "영상 다운로드 중",
+            0.05,
+            f"링크 영상을 먼저 저장합니다: {downloads_dir}",
+        )
         import yt_dlp
 
-        downloads_dir = job_dir / "source"
-        downloads_dir.mkdir(parents=True, exist_ok=True)
-        outtmpl = str(downloads_dir / "%(title).90s.%(ext)s")
+        outtmpl = str(downloads_dir / f"{started}_%(title).90s.%(ext)s")
         ffmpeg_dir = str(self.ffmpeg.parent)
         ydl_opts: dict[str, object] = {
             "format": "bv*+ba/b",
@@ -160,7 +171,7 @@ class VideoNotePipeline:
             "noplaylist": True,
             "quiet": True,
             "no_warnings": True,
-            "restrictfilenames": True,
+            "windowsfilenames": True,
             "ffmpeg_location": ffmpeg_dir,
         }
         if self.settings.use_browser_cookies:
@@ -176,10 +187,11 @@ class VideoNotePipeline:
             if merged.exists():
                 downloaded = merged
             if not downloaded.exists():
-                candidates = sorted(downloads_dir.glob("*"), key=lambda path: path.stat().st_mtime, reverse=True)
+                candidates = sorted(downloads_dir.glob(f"{started}_*"), key=lambda path: path.stat().st_mtime, reverse=True)
                 if not candidates:
                     raise RuntimeError("다운로드된 영상 파일을 찾지 못했습니다.")
                 downloaded = candidates[0]
+        self.progress("영상 다운로드 완료", 0.09, f"저장된 동영상: {downloaded}")
         return downloaded.resolve(), title
 
     def _extract_audio_chunks(self, video_path: Path, job_dir: Path, duration: float) -> list[TranscriptChunk]:
