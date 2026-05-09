@@ -7,7 +7,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 
-APP_NAME = "ClipNoteAI"
+APP_NAME = "VideoSummaryNoteGenerator"
 
 
 @dataclass

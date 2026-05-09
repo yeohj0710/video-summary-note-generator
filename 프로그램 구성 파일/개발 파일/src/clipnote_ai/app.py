@@ -19,6 +19,7 @@ from clipnote_ai.utils import resource_path
 
 SOURCE_URL_MODE = "링크로 가져오기"
 SOURCE_FILE_MODE = "내 컴퓨터 파일"
+PRODUCT_NAME = "동영상 요약 노트 생성기"
 
 
 class SmoothScrollableFrame(ctk.CTkScrollableFrame):
@@ -122,7 +123,7 @@ class ClipNoteApp(ctk.CTk):
         ctk.set_appearance_mode("light")
         ctk.set_default_color_theme("blue")
 
-        self.title("ClipNote AI")
+        self.title(PRODUCT_NAME)
         self._set_window_icon()
         self.geometry("1160x820")
         self.minsize(1080, 740)
@@ -193,11 +194,11 @@ class ClipNoteApp(ctk.CTk):
 
         title = ctk.CTkLabel(
             header,
-            text="ClipNote AI",
+            text=PRODUCT_NAME,
             font=self.font_title,
             text_color="#111827",
         )
-        title.grid(row=0, column=0, padx=32, pady=(24, 5), sticky="w")
+        title.grid(row=0, column=0, padx=32, pady=(22, 4), sticky="w")
         credit = ctk.CTkLabel(
             header,
             text="developed by yeohj0710",
@@ -208,14 +209,14 @@ class ClipNoteApp(ctk.CTk):
             padx=10,
             pady=3,
         )
-        credit.grid(row=0, column=0, padx=(214, 0), pady=(31, 0), sticky="w")
+        credit.grid(row=1, column=0, padx=32, pady=(0, 7), sticky="w")
         subtitle = ctk.CTkLabel(
             header,
-            text="릴스, 유튜브, 로컬 동영상을 주요 장면 이미지와 한국어 노트로 변환합니다.",
+            text="릴스, 유튜브, 로컬 동영상을 전사하고 요약 노트로 변환합니다.",
             font=self.font_subtitle,
             text_color="#475569",
         )
-        subtitle.grid(row=1, column=0, padx=32, pady=(0, 22), sticky="w")
+        subtitle.grid(row=2, column=0, padx=32, pady=(0, 22), sticky="w")
         ctk.CTkButton(
             header,
             text="사용설명서 열기",
@@ -226,7 +227,7 @@ class ClipNoteApp(ctk.CTk):
             fg_color="#334155",
             hover_color="#1f2937",
             command=self._open_user_guide,
-        ).grid(row=0, column=1, rowspan=2, padx=(12, 32), pady=26, sticky="e")
+        ).grid(row=0, column=1, rowspan=3, padx=(12, 32), pady=26, sticky="e")
 
         body = ctk.CTkFrame(self, fg_color="#edf1f6", corner_radius=0)
         body.grid(row=1, column=0, sticky="nsew")

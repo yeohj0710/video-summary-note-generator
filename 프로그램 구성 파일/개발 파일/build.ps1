@@ -6,8 +6,10 @@ $RepoRoot = Split-Path -Parent $ProgramFilesDir
 $ProgramDirName = -join ([char[]](0xD504, 0xB85C, 0xADF8, 0xB7A8, 0x20, 0xAD6C, 0xC131, 0x20, 0xD30C, 0xC77C))
 $NotesDirName = -join ([char[]](0xC0DD, 0xC131, 0xB41C, 0x20, 0xB178, 0xD2B8))
 $GuideFileName = (-join ([char[]](0xC0AC, 0xC6A9, 0xC124, 0xBA85, 0xC11C))) + ".html"
+$ExeBaseName = -join ([char[]](0xB3D9, 0xC601, 0xC0C1, 0x20, 0xC694, 0xC57D, 0x20, 0xB178, 0xD2B8, 0x20, 0xC0DD, 0xC131, 0xAE30))
+$ExeFileName = $ExeBaseName + ".exe"
 $PlaceholderFileName = (-join ([char[]](0xACB0, 0xACFC, 0x20, 0xD30C, 0xC77C, 0xC740, 0x20, 0xC5EC, 0xAE30, 0xC5D0, 0x20, 0xC800, 0xC7A5, 0xB429, 0xB2C8, 0xB2E4))) + ".txt"
-$PlaceholderText = "ClipNote AI " + (-join ([char[]](0xACB0, 0xACFC, 0x20, 0xD30C, 0xC77C, 0xC774, 0x20, 0xC774, 0x20, 0xD3F4, 0xB354, 0xC5D0, 0x20, 0xC800, 0xC7A5, 0xB429, 0xB2C8, 0xB2E4))) + "."
+$PlaceholderText = $ExeBaseName + " " + (-join ([char[]](0xACB0, 0xACFC, 0x20, 0xD30C, 0xC77C, 0xC774, 0x20, 0xC774, 0x20, 0xD3F4, 0xB354, 0xC5D0, 0x20, 0xC800, 0xC7A5, 0xB429, 0xB2C8, 0xB2E4))) + "."
 Set-Location $DevRoot
 
 if (-not (Test-Path ".venv")) {
@@ -30,7 +32,7 @@ if (Test-Path "dist") {
     --clean `
     --onedir `
     --windowed `
-    --name "ClipNoteAI" `
+    --name $ExeBaseName `
     --icon "assets\clipnote.ico" `
     --contents-directory $ProgramDirName `
     --add-data "assets\clipnote.ico;assets" `
@@ -40,8 +42,8 @@ if (Test-Path "dist") {
     --hidden-import yt_dlp `
     "src\clipnote_ai\__main__.py"
 
-$BuiltAppDir = Join-Path $DevRoot "dist\ClipNoteAI"
-$BuiltExe = Join-Path $BuiltAppDir "ClipNoteAI.exe"
+$BuiltAppDir = Join-Path $DevRoot ("dist\" + $ExeBaseName)
+$BuiltExe = Join-Path $BuiltAppDir $ExeFileName
 $BuiltRuntimeDir = Join-Path $BuiltAppDir $ProgramDirName
 
 if (-not (Test-Path $BuiltExe)) {
@@ -51,7 +53,11 @@ if (-not (Test-Path $BuiltRuntimeDir)) {
     throw "Built runtime folder was not found: $BuiltRuntimeDir"
 }
 
-Copy-Item $BuiltExe (Join-Path $RepoRoot "ClipNoteAI.exe") -Force
+$OldExe = Join-Path $RepoRoot "ClipNoteAI.exe"
+if (Test-Path $OldExe) {
+    Remove-Item -LiteralPath $OldExe -Force
+}
+Copy-Item $BuiltExe (Join-Path $RepoRoot $ExeFileName) -Force
 
 New-Item -ItemType Directory -Force -Path $ProgramFilesDir | Out-Null
 $DevRootResolved = (Resolve-Path $DevRoot).Path
@@ -77,7 +83,7 @@ if (-not (Test-Path $Guide)) {
 
 Write-Host ""
 Write-Host "Done:"
-Write-Host "  ClipNoteAI.exe"
+Write-Host ("  " + $ExeFileName)
 Write-Host ("  " + $GuideFileName)
 Write-Host ("  " + $NotesDirName + "\")
 Write-Host ("  " + $ProgramDirName + "\")
