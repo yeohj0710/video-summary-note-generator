@@ -125,6 +125,63 @@ class SmoothScrollableFrame(ctk.CTkScrollableFrame):
         self._smooth_scroll_after_id = self.after(self.scroll_frame_delay_ms, self._animate_smooth_scroll)
 
 
+class ActivitySpinner(tk.Canvas):
+    def __init__(
+        self,
+        master: tk.Misc,
+        size: int = 18,
+        color: str = "#2563eb",
+        bg: str = "#ffffff",
+    ) -> None:
+        super().__init__(
+            master,
+            width=size,
+            height=size,
+            bg=bg,
+            highlightthickness=0,
+            bd=0,
+        )
+        self.size = size
+        self.color = color
+        self.angle = 90
+        self.after_id: str | None = None
+        self.running = False
+
+    def start(self) -> None:
+        if self.running:
+            return
+        self.running = True
+        self._tick()
+
+    def stop(self) -> None:
+        self.running = False
+        if self.after_id is not None:
+            try:
+                self.after_cancel(self.after_id)
+            except tk.TclError:
+                pass
+            self.after_id = None
+        self.delete("all")
+
+    def _tick(self) -> None:
+        self.delete("all")
+        pad = 3
+        self.create_arc(
+            pad,
+            pad,
+            self.size - pad,
+            self.size - pad,
+            start=self.angle,
+            extent=285,
+            style="arc",
+            outline=self.color,
+            width=3,
+        )
+        self.angle = (self.angle - 18) % 360
+        if self.running:
+            self.after_id = self.after(33, self._tick)
+
+
 class ClipNoteApp(ctk.CTk):
     primary_color = "#2563eb"
     primary_hover = "#1d4ed8"
@@ -152,9 +209,7 @@ class ClipNoteApp(ctk.CTk):
         self.worker_thread: threading.Thread | None = None
         self.events: queue.Queue[tuple[str, object]] = queue.Queue()
         self.latest_result: PipelineResult | None = None
-        self.busy_animation_after_id: str | None = None
-        self.busy_animation_step = 0
-        self.busy_frames = ("◐", "◓", "◑", "◒")
+        self.is_processing = False
 
         self.source_type = tk.StringVar(value=SOURCE_URL_MODE)
         self.url_var = tk.StringVar()
@@ -589,14 +644,14 @@ class ClipNoteApp(ctk.CTk):
         status_row = ctk.CTkFrame(parent, fg_color="transparent")
         status_row.grid(row=1, column=0, padx=22, pady=(0, 10), sticky="ew")
         status_row.grid_columnconfigure(1, weight=1)
-        self.activity_label = ctk.CTkLabel(
+        self.activity_spinner = ActivitySpinner(
             status_row,
-            text="",
-            width=24,
-            font=ctk.CTkFont(family=self.font_family, size=18, weight="bold"),
-            text_color=self.primary_color,
+            size=18,
+            color=self.primary_color,
+            bg="#ffffff",
         )
-        self.activity_label.grid(row=0, column=0, padx=(0, 6), sticky="w")
+        self.activity_spinner.grid(row=0, column=0, padx=(0, 8), sticky="w")
+        self.activity_spinner.grid_remove()
         self.status_label = ctk.CTkLabel(status_row, text="대기 중", text_color="#334155", font=self.font_body)
         self.status_label.grid(row=0, column=1, sticky="w")
         self.progress_bar = ctk.CTkProgressBar(
@@ -702,47 +757,30 @@ class ClipNoteApp(ctk.CTk):
         set_entry(self.min_scene_entry, self.min_scene_label, auto)
         set_entry(self.max_scene_entry, self.max_scene_label, auto)
 
-    def _set_busy_animation(self, active: bool) -> None:
-        if active:
-            if self.busy_animation_after_id is None:
-                self.busy_animation_step = 0
-                self._animate_busy()
+    def _set_processing_indicator(self, active: bool) -> None:
+        self.is_processing = active
+        if not hasattr(self, "activity_spinner"):
             return
 
-        if self.busy_animation_after_id is not None:
-            try:
-                self.after_cancel(self.busy_animation_after_id)
-            except tk.TclError:
-                pass
-            self.busy_animation_after_id = None
-        if hasattr(self, "activity_label"):
-            self.activity_label.configure(text="")
-
-    def _animate_busy(self) -> None:
-        frame = self.busy_frames[self.busy_animation_step % len(self.busy_frames)]
-        dot_count = (self.busy_animation_step % 3) + 1
-        dots = "." * dot_count
-
-        if hasattr(self, "activity_label"):
-            self.activity_label.configure(text=frame)
-        if hasattr(self, "start_button"):
-            self.start_button.configure(text=f"{frame} 처리 중{dots}")
-
-        self.busy_animation_step += 1
-        self.busy_animation_after_id = self.after(160, self._animate_busy)
+        if active:
+            self.activity_spinner.grid()
+            self.activity_spinner.start()
+        else:
+            self.activity_spinner.stop()
+            self.activity_spinner.grid_remove()
 
     def _set_start_button_busy(self, busy: bool) -> None:
         if busy:
             self.start_button.configure(
                 state="disabled",
-                text="◐ 처리 중.",
+                text="처리 중",
                 fg_color=self.primary_hover,
                 hover_color=self.primary_hover,
                 text_color_disabled="#ffffff",
             )
-            self._set_busy_animation(True)
+            self._set_processing_indicator(True)
         else:
-            self._set_busy_animation(False)
+            self._set_processing_indicator(False)
             self.start_button.configure(
                 state="normal",
                 text="노트 만들기",
@@ -900,7 +938,7 @@ class ClipNoteApp(ctk.CTk):
             webbrowser.open(path.as_uri())
 
     def _on_close(self) -> None:
-        self._set_busy_animation(False)
+        self._set_processing_indicator(False)
         self._collect_settings()
         self.destroy()
 
