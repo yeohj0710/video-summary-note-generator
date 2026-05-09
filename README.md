@@ -42,10 +42,11 @@ release/
     ClipNoteAI.exe
     사용설명서.html
     outputs/
+    _internal/
   ClipNoteAI.zip
 ```
 
-사용자는 `사용설명서.html`을 먼저 열어 사용법을 확인한 뒤 `ClipNoteAI.exe`를 실행하면 됩니다. 결과물은 기본적으로 같은 폴더의 `outputs`에 저장됩니다.
+사용자는 `사용설명서.html`을 먼저 열어 사용법을 확인한 뒤 `ClipNoteAI.exe`를 실행하면 됩니다. 결과물은 기본적으로 같은 폴더의 `outputs`에 저장됩니다. `_internal` 폴더에는 프로그램 실행에 필요한 파일들이 들어 있으므로 삭제하거나 옮기지 마세요.
 
 ## 개발 실행
 
