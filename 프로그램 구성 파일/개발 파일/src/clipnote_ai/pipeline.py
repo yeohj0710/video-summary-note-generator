@@ -347,11 +347,16 @@ class VideoNotePipeline:
         transcript_path = job_dir / USER_TRANSCRIPT_NAME
         lines: list[str] = []
         for chunk in chunks:
-            lines.append(f"[{format_timecode(chunk.start)} - {format_timecode(chunk.end)}]")
-            lines.extend(self._transcript_paragraphs(chunk.clean_text or chunk.raw_text))
+            text = self._strip_transcript_labels(chunk.clean_text or chunk.raw_text)
+            lines.extend(self._note_paragraphs(text))
             lines.append("")
         transcript_path.write_text("\n".join(lines).strip() + "\n", encoding="utf-8")
         return transcript_path
+
+    def _strip_transcript_labels(self, text: str) -> str:
+        cleaned = re.sub(r"^\s*\[[0-9:.]+\s*-\s*[0-9:.]+\]\s*", "", text.strip())
+        cleaned = re.sub(r"^\s*구간:\s*[0-9:.]+\s*-\s*[0-9:.]+\s*", "", cleaned)
+        return cleaned.strip()
 
     def _split_sentences(self, text: str) -> list[str]:
         normalized = re.sub(r"\s+", " ", text.strip())
