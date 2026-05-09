@@ -40,6 +40,6 @@ def test_run_writes_video_and_txt_pair_in_output_root(tmp_path: Path, monkeypatc
     assert len(files) == 3
     assert any(name.endswith("source.mp4") for name in files)
     assert any(name.endswith("source.txt") for name in files)
-    assert any(name.endswith("source 요약.txt") for name in files)
+    assert result.summary_path.stem.endswith("_\uc694\uc57d")
     assert "\n\n" in result.transcript_path.read_text(encoding="utf-8")
     assert "핵심 디테일" in result.summary_path.read_text(encoding="utf-8")

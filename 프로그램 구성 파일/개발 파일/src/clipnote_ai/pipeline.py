@@ -8,6 +8,7 @@ import shutil
 import tempfile
 import time
 from dataclasses import dataclass
+from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Callable
 from urllib.parse import urlparse
@@ -108,7 +109,7 @@ class VideoNotePipeline:
         final_base = self._unique_output_base(output_root, f"{started} {safe_title}", source_video_path.suffix or ".mp4")
         video_path = final_base.with_suffix(source_video_path.suffix or ".mp4")
         transcript_path = final_base.with_suffix(".txt")
-        summary_path = final_base.with_name(f"{final_base.name} 요약").with_suffix(".txt")
+        summary_path = final_base.with_name(f"{final_base.name}_요약").with_suffix(".txt")
 
         if source_video_path.resolve() != video_path.resolve():
             self.progress("영상 저장 중", 0.10, f"동영상을 결과 폴더에 저장합니다: {video_path.name}")
@@ -146,7 +147,7 @@ class VideoNotePipeline:
         while (
             candidate.with_suffix(video_suffix).exists()
             or candidate.with_suffix(".txt").exists()
-            or candidate.with_name(f"{candidate.name} 요약").with_suffix(".txt").exists()
+            or candidate.with_name(f"{candidate.name}_요약").with_suffix(".txt").exists()
         ):
             suffix += 1
             candidate = output_root / f"{base_name}_{suffix}"
@@ -362,10 +363,10 @@ class VideoNotePipeline:
                 "- 원문의 순서를 최대한 유지한다.\n"
                 "- 확실하지 않은 내용은 단정하지 않는다.\n\n"
                 "출력 형식:\n"
-                "1. 첫 줄에는 영상 제목을 쓴다.\n"
-                "2. 그 다음 줄부터 자연스러운 문단형 요약을 쓴다.\n"
-                "3. 문단 사이에는 빈 줄을 하나 넣는다.\n"
-                "4. 불릿을 남발하지 말고, 필요한 경우에만 짧게 사용한다.\n\n"
+                "1. 제목, 머리말, '요약' 같은 라벨 없이 바로 본문으로 시작한다.\n"
+                "2. 한 문장 또는 짧은 의미 단위마다 줄을 나눠 읽기 쉽게 쓴다.\n"
+                "3. 너무 긴 문단은 만들지 않는다. 문단 사이에는 빈 줄을 하나 넣는다.\n"
+                "4. 불릿과 번호 목록을 남발하지 말고, 필요한 경우에만 짧게 사용한다.\n\n"
                 f"전사문:\n{transcript}"
             ),
         ).strip()
@@ -385,8 +386,50 @@ class VideoNotePipeline:
     def _normalize_summary_text(self, summary: str, title: str) -> str:
         cleaned = re.sub(r"\n{3,}", "\n\n", summary.strip())
         if not cleaned:
-            cleaned = title.strip()
-        return cleaned + "\n"
+            return "\n"
+
+        lines = [line.strip() for line in cleaned.splitlines() if line.strip()]
+        lines = self._drop_summary_heading(lines, title)
+        body = " ".join(lines).strip()
+        if not body:
+            return "\n"
+
+        paragraphs = self._note_paragraphs(body)
+        return "\n\n".join(paragraphs).strip() + "\n"
+
+    def _drop_summary_heading(self, lines: list[str], title: str) -> list[str]:
+        if not lines:
+            return lines
+
+        first = lines[0].strip()
+        if re.fullmatch(r"(요약|summary)", first, flags=re.IGNORECASE):
+            return lines[1:]
+
+        if re.match(r"^(영상\s*제목|제목)\s*[:：]", first):
+            return lines[1:]
+
+        summary_label = re.match(r"^요약\s*[:：]\s*(.+)$", first)
+        if summary_label:
+            rest = summary_label.group(1).strip()
+            return ([rest] if rest else []) + lines[1:]
+
+        first_key = self._compact_heading(first)
+        title_key = self._compact_heading(title)
+        if first_key and title_key:
+            is_same_title = (
+                first_key == title_key
+                or first_key in title_key
+                or title_key in first_key
+                or SequenceMatcher(None, first_key, title_key).ratio() >= 0.78
+            )
+            if is_same_title:
+                return lines[1:]
+
+        return lines
+
+    @staticmethod
+    def _compact_heading(text: str) -> str:
+        return re.sub(r"[\W_]+", "", text, flags=re.UNICODE).lower()
 
     def _strip_transcript_labels(self, text: str) -> str:
         cleaned = re.sub(r"^\s*\[[0-9:.]+\s*-\s*[0-9:.]+\]\s*", "", text.strip())
@@ -395,14 +438,68 @@ class VideoNotePipeline:
 
     def _split_sentences(self, text: str) -> list[str]:
         normalized = re.sub(r"\s+", " ", text.strip())
+        normalized = re.sub(r"(?<=\d)\.\s+(?=\d)", ".", normalized)
         if not normalized:
             return []
 
-        marked = re.sub(r"(?<=[.!?。！？])\s*", "\n", normalized)
-        sentences = [part.strip() for part in marked.splitlines() if part.strip()]
+        sentences: list[str] = []
+        start = 0
+        index = 0
+        while index < len(normalized):
+            char = normalized[index]
+            if char not in ".!?。！？":
+                index += 1
+                continue
+
+            if char == "." and self._is_non_sentence_period(normalized, index, start):
+                index += 1
+                continue
+
+            end = index + 1
+            while end < len(normalized) and normalized[end] in "\"')]}”’》」』":
+                end += 1
+
+            sentence = normalized[start:end].strip()
+            if sentence:
+                sentences.append(sentence)
+
+            start = end
+            while start < len(normalized) and normalized[start].isspace():
+                start += 1
+            index = start
+
+        tail = normalized[start:].strip()
+        if tail:
+            sentences.append(tail)
+
         if len(sentences) == 1 and len(sentences[0]) > 360:
             return self._split_long_text(sentences[0], 220)
         return sentences
+
+    def _is_non_sentence_period(self, text: str, index: int, sentence_start: int) -> bool:
+        previous = text[index - 1] if index > 0 else ""
+        next_immediate = text[index + 1] if index + 1 < len(text) else ""
+        next_index = index + 1
+        while next_index < len(text) and text[next_index].isspace():
+            next_index += 1
+        next_nonspace = text[next_index] if next_index < len(text) else ""
+
+        if previous.isdigit() and next_nonspace.isdigit():
+            return True
+
+        token_before_period = text[sentence_start:index].strip()
+        if re.fullmatch(r"\d{1,3}", token_before_period) and next_nonspace:
+            return True
+
+        if (
+            previous.isascii()
+            and previous.isalnum()
+            and next_immediate.isascii()
+            and next_immediate.isalnum()
+        ):
+            return True
+
+        return False
 
     def _transcript_paragraphs(self, text: str, sentences_per_paragraph: int = 2, max_chars: int = 260) -> list[str]:
         sentences = self._split_sentences(text)

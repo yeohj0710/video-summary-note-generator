@@ -3,6 +3,34 @@ from pathlib import Path
 from clipnote_ai.pipeline import TranscriptChunk, VideoNotePipeline
 
 
+def test_sentence_splitter_keeps_version_numbers_together():
+    pipeline = VideoNotePipeline.__new__(VideoNotePipeline)
+
+    paragraphs = pipeline._note_paragraphs("Version 5.1 started here. Version 5.2 followed.")
+
+    assert paragraphs == ["Version 5.1 started here.", "Version 5.2 followed."]
+
+
+def test_sentence_splitter_repairs_spaced_version_numbers():
+    pipeline = VideoNotePipeline.__new__(VideoNotePipeline)
+
+    paragraphs = pipeline._note_paragraphs("Version 5. 1 started here. Version 5. 2 followed.")
+
+    assert paragraphs == ["Version 5.1 started here.", "Version 5.2 followed."]
+
+
+def test_summary_text_removes_title_and_adds_reading_space():
+    pipeline = VideoNotePipeline.__new__(VideoNotePipeline)
+
+    text = pipeline._normalize_summary_text(
+        "Sample Video\n\nGPT 5.1 started here. GPT 5.2 followed with more details.",
+        "Sample Video",
+    )
+
+    assert not text.startswith("Sample Video")
+    assert "GPT 5.1 started here.\n\nGPT 5.2 followed with more details." in text
+
+
 def test_write_transcript_omits_internal_time_labels(tmp_path: Path):
     pipeline = VideoNotePipeline.__new__(VideoNotePipeline)
     chunks = [
