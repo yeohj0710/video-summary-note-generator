@@ -23,9 +23,9 @@ PRODUCT_NAME = "동영상 요약 노트 생성기"
 
 
 class SmoothScrollableFrame(ctk.CTkScrollableFrame):
-    scroll_pixels_per_notch = 92
-    scroll_frame_delay_ms = 10
-    scroll_ease = 0.24
+    scroll_pixels_per_notch = 34
+    scroll_frame_delay_ms = 12
+    scroll_ease = 0.16
 
     def __init__(self, *args: object, **kwargs: object) -> None:
         self._smooth_scroll_target_px: float | None = None
@@ -60,7 +60,8 @@ class SmoothScrollableFrame(ctk.CTkScrollableFrame):
         delta = getattr(event, "delta", 0)
         if delta:
             if sys.platform.startswith("win"):
-                return float(delta) / 120
+                notches = float(delta) / 120
+                return max(-1.0, min(1.0, notches))
             return float(delta)
         number = getattr(event, "num", None)
         if number == 4:
