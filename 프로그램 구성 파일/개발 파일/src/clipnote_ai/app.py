@@ -237,7 +237,7 @@ class ClipNoteApp(ctk.CTk):
         credit.grid(row=1, column=0, padx=32, pady=(0, 7), sticky="w")
         subtitle = ctk.CTkLabel(
             header,
-            text="릴스, 유튜브, 로컬 동영상을 전사하고 요약 노트로 변환합니다.",
+            text="릴스, 유튜브, 로컬 동영상을 주요 화면과 전체 전사문 노트로 변환합니다.",
             font=self.font_subtitle,
             text_color="#475569",
         )
@@ -441,7 +441,7 @@ class ClipNoteApp(ctk.CTk):
         ctk.CTkLabel(model_grid, text="전사 모델", font=self.font_label, text_color="#334155").grid(
             row=0, column=0, sticky="w"
         )
-        ctk.CTkLabel(model_grid, text="문장/요약 모델", font=self.font_label, text_color="#334155").grid(
+        ctk.CTkLabel(model_grid, text="문장/장면 모델", font=self.font_label, text_color="#334155").grid(
             row=0, column=1, padx=(12, 0), sticky="w"
         )
         ctk.CTkComboBox(

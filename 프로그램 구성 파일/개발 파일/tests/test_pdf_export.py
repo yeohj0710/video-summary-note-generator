@@ -49,3 +49,12 @@ def test_render_pdf_contains_key_scene_and_script(tmp_path: Path):
     assert pdf_path.exists()
     assert pdf_path.stat().st_size > 1000
 
+
+def test_transcript_paragraphs_split_long_blocks():
+    pipeline = VideoNotePipeline.__new__(VideoNotePipeline)
+    text = "첫 번째 문장입니다. 두 번째 문장입니다. 세 번째 문장입니다. 네 번째 문장입니다."
+
+    paragraphs = pipeline._transcript_paragraphs(text)
+
+    assert paragraphs == ["첫 번째 문장입니다. 두 번째 문장입니다.", "세 번째 문장입니다. 네 번째 문장입니다."]
+

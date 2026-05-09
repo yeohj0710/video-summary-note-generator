@@ -3,6 +3,7 @@
 import html
 import json
 import os
+import re
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -135,7 +136,7 @@ class VideoNotePipeline:
         self._extract_scene_images(video_path, support_dir, scenes)
 
         markdown_path = self._render_markdown(support_dir, source_title, source_label, duration, chunks, scenes, analysis)
-        html_path = self._render_html(support_dir, source_title, source_label, duration, scenes, analysis)
+        html_path = self._render_html(support_dir, source_title, source_label, duration, chunks, scenes, analysis)
         pdf_path = self._render_pdf(job_dir, source_title, source_label, duration, chunks, scenes, analysis)
         self._write_metadata(support_dir, source_title, source_label, duration, scenes, analysis)
 
@@ -341,10 +342,51 @@ class VideoNotePipeline:
         lines: list[str] = []
         for chunk in chunks:
             lines.append(f"[{format_timecode(chunk.start)} - {format_timecode(chunk.end)}]")
-            lines.append(chunk.clean_text or chunk.raw_text)
+            lines.extend(self._transcript_paragraphs(chunk.clean_text or chunk.raw_text))
             lines.append("")
         transcript_path.write_text("\n".join(lines).strip() + "\n", encoding="utf-8")
         return transcript_path
+
+    def _transcript_paragraphs(self, text: str, sentences_per_paragraph: int = 2, max_chars: int = 260) -> list[str]:
+        normalized = re.sub(r"\s+", " ", text.strip())
+        if not normalized:
+            return []
+
+        sentences = [part.strip() for part in re.split(r"(?<=[.!?。！？])\s+", normalized) if part.strip()]
+        paragraphs: list[str] = []
+        current: list[str] = []
+        current_len = 0
+
+        for sentence in sentences:
+            current.append(sentence)
+            current_len += len(sentence)
+            if len(current) >= sentences_per_paragraph or current_len >= max_chars:
+                paragraphs.append(" ".join(current).strip())
+                current = []
+                current_len = 0
+
+        if current:
+            paragraphs.append(" ".join(current).strip())
+
+        if len(paragraphs) == 1 and len(paragraphs[0]) > max_chars:
+            paragraphs = self._split_long_text(paragraphs[0], max_chars)
+
+        return paragraphs
+
+    def _split_long_text(self, text: str, max_chars: int = 260) -> list[str]:
+        words = text.split(" ")
+        lines: list[str] = []
+        current = ""
+        for word in words:
+            candidate = f"{current} {word}".strip()
+            if len(candidate) > max_chars and current:
+                lines.append(current)
+                current = word
+            else:
+                current = candidate
+        if current:
+            lines.append(current)
+        return lines or [text]
 
     def _transcript_for_prompt(self, chunks: list[TranscriptChunk], max_chars: int = 170_000) -> str:
         per_chunk_limit = max(900, max_chars // max(1, len(chunks)))
@@ -394,11 +436,8 @@ class VideoNotePipeline:
                 "JSON 형식:\n"
                 "{\n"
                 '  "title": "노트 제목",\n'
-                '  "one_line_summary": "한 줄 요약",\n'
-                '  "summary_bullets": ["핵심 요약 1", "핵심 요약 2"],\n'
                 '  "scenes": [\n'
-                '    {"seconds": 12, "timecode": "00:00:12", "heading": "장면 제목", '
-                '"summary": "장면 설명", "quote": "대표 발화 또는 빈 문자열", "why": "이 장면을 고른 이유"}\n'
+                '    {"seconds": 12, "timecode": "00:00:12", "heading": "장면 제목"}\n'
                 "  ]\n"
                 "}\n\n"
                 f"전사문:\n{transcript}"
@@ -430,9 +469,9 @@ class VideoNotePipeline:
                         seconds=safe_seconds,
                         timecode=format_timecode(safe_seconds),
                         heading=str(item.get("heading") or f"주요 장면 {len(scenes) + 1}"),
-                        summary=str(item.get("summary") or ""),
-                        quote=str(item.get("quote") or ""),
-                        why=str(item.get("why") or ""),
+                        summary="",
+                        quote="",
+                        why="",
                     )
                 )
 
@@ -451,9 +490,9 @@ class VideoNotePipeline:
                         seconds=seconds,
                         timecode=format_timecode(seconds),
                         heading=f"주요 장면 {index + 1}",
-                        summary="전사문 기반 자동 분석에 실패해 균등 간격으로 추출한 장면입니다.",
+                        summary="",
                         quote="",
-                        why="대체 추출",
+                        why="",
                     )
                 )
 
@@ -505,7 +544,6 @@ class VideoNotePipeline:
     ) -> Path:
         markdown_path = job_dir / "summary.md"
         title = str(analysis.get("title") or source_title)
-        bullets = analysis.get("summary_bullets") if isinstance(analysis.get("summary_bullets"), list) else []
         lines = [
             f"# {title}",
             "",
@@ -514,18 +552,9 @@ class VideoNotePipeline:
             f"- 주요 장면: {len(scenes)}개",
             "- developed by yeohj0710",
             "",
-            "## 한 줄 요약",
-            "",
-            str(analysis.get("one_line_summary") or "").strip() or "요약이 비어 있습니다.",
-            "",
         ]
-        if bullets:
-            lines.extend(["## 핵심 요약", ""])
-            for bullet in bullets:
-                lines.append(f"- {str(bullet).strip()}")
-            lines.append("")
 
-        lines.extend(["## 주요 장면", ""])
+        lines.extend(["## 주요 화면", ""])
         for scene in scenes:
             rel_image = scene.image_path.relative_to(markdown_path.parent).as_posix() if scene.image_path else ""
             lines.extend(
@@ -534,20 +563,14 @@ class VideoNotePipeline:
                     "",
                     f"![{scene.heading}]({rel_image})" if rel_image else "",
                     "",
-                    scene.summary,
-                    "",
                 ]
             )
-            if scene.quote:
-                lines.extend([f"> {scene.quote}", ""])
-            if scene.why:
-                lines.extend([f"선정 이유: {scene.why}", ""])
 
-        lines.extend(["## 정리된 전사문", ""])
+        lines.extend(["## 전체 전사문", ""])
         for chunk in chunks:
             lines.append(f"### {format_timecode(chunk.start)} - {format_timecode(chunk.end)}")
             lines.append("")
-            lines.append(chunk.clean_text or chunk.raw_text)
+            lines.extend(self._transcript_paragraphs(chunk.clean_text or chunk.raw_text))
             lines.append("")
 
         markdown_path.write_text("\n".join(lines).strip() + "\n", encoding="utf-8")
@@ -559,30 +582,37 @@ class VideoNotePipeline:
         source_title: str,
         source_label: str,
         duration: float,
+        chunks: list[TranscriptChunk],
         scenes: list[Scene],
         analysis: dict[str, object],
     ) -> Path:
         html_path = job_dir / "summary.html"
         title = str(analysis.get("title") or source_title)
-        bullets = analysis.get("summary_bullets") if isinstance(analysis.get("summary_bullets"), list) else []
         scene_cards = []
         for scene in scenes:
             rel_image = scene.image_path.relative_to(html_path.parent).as_posix() if scene.image_path else ""
-            quote = f"<blockquote>{html.escape(scene.quote)}</blockquote>" if scene.quote else ""
-            why = f"<p class='why'>선정 이유: {html.escape(scene.why)}</p>" if scene.why else ""
             scene_cards.append(
                 f"""
                 <section class="scene">
                   <div class="time">{html.escape(scene.timecode)}</div>
                   <h2>{scene.index:02d}. {html.escape(scene.heading)}</h2>
                   <img src="{html.escape(rel_image)}" alt="{html.escape(scene.heading)}">
-                  <p>{html.escape(scene.summary)}</p>
-                  {quote}
-                  {why}
                 </section>
                 """
             )
-        bullet_items = "".join(f"<li>{html.escape(str(item))}</li>" for item in bullets)
+        transcript_blocks = []
+        for chunk in chunks:
+            paragraphs = "".join(
+                f"<p>{html.escape(paragraph)}</p>" for paragraph in self._transcript_paragraphs(chunk.clean_text or chunk.raw_text)
+            )
+            transcript_blocks.append(
+                f"""
+                <section class="script-block">
+                  <h3>{html.escape(format_timecode(chunk.start))} - {html.escape(format_timecode(chunk.end))}</h3>
+                  {paragraphs}
+                </section>
+                """
+            )
         document = f"""<!doctype html>
 <html lang="ko">
 <head>
@@ -620,13 +650,9 @@ class VideoNotePipeline:
       letter-spacing: 0;
       line-height: 1.15;
     }}
-    .meta, .why {{
+    .meta {{
       color: var(--muted);
       font-size: 14px;
-    }}
-    .summary {{
-      font-size: 19px;
-      margin-top: 18px;
     }}
     .credit {{
       display: inline-flex;
@@ -637,9 +663,6 @@ class VideoNotePipeline:
       color: #2563eb;
       font-size: 13px;
       font-weight: 700;
-    }}
-    ul {{
-      padding-left: 22px;
     }}
     .scene {{
       padding: 30px 0;
@@ -663,11 +686,18 @@ class VideoNotePipeline:
       border-radius: 8px;
       border: 1px solid var(--line);
     }}
-    blockquote {{
-      margin: 16px 0;
-      padding-left: 14px;
-      border-left: 4px solid var(--accent);
-      color: #263445;
+    .script-block {{
+      padding: 18px 0;
+      border-top: 1px solid var(--line);
+    }}
+    h3 {{
+      margin: 0 0 10px;
+      color: var(--accent);
+      font-size: 16px;
+      letter-spacing: 0;
+    }}
+    p {{
+      margin: 0 0 12px;
     }}
     footer {{
       border-top: 1px solid var(--line);
@@ -684,10 +714,11 @@ class VideoNotePipeline:
       <h1>{html.escape(title)}</h1>
       <div class="meta">원본: {html.escape(source_label)} · 길이: {html.escape(format_timecode(duration))} · 주요 장면 {len(scenes)}개</div>
       <div class="credit">developed by yeohj0710</div>
-      <p class="summary">{html.escape(str(analysis.get("one_line_summary") or ""))}</p>
-      <ul>{bullet_items}</ul>
     </header>
+    <h2>주요 화면</h2>
     {''.join(scene_cards)}
+    <h2>전체 전사문</h2>
+    {''.join(transcript_blocks)}
     <footer>동영상 요약 노트 생성기 · developed by yeohj0710</footer>
   </main>
 </body>
@@ -761,7 +792,6 @@ class VideoNotePipeline:
         pdf_path = job_dir / USER_PDF_NAME
         regular_font, bold_font = self._register_pdf_fonts()
         title = str(analysis.get("title") or source_title)
-        bullets = analysis.get("summary_bullets") if isinstance(analysis.get("summary_bullets"), list) else []
 
         doc = SimpleDocTemplate(
             str(pdf_path),
@@ -855,16 +885,9 @@ class VideoNotePipeline:
             ),
             Paragraph("developed by yeohj0710", styles["credit"]),
             Spacer(1, 5 * mm),
-            Paragraph("한 줄 요약", styles["h2"]),
-            Paragraph(self._pdf_paragraph_text(analysis.get("one_line_summary") or "요약이 비어 있습니다."), styles["body"]),
         ]
 
-        if bullets:
-            story.append(Paragraph("핵심 요약", styles["h2"]))
-            for bullet in bullets:
-                story.append(Paragraph(f"• {self._pdf_paragraph_text(bullet)}", styles["body"]))
-
-        story.append(Paragraph("주요 화면과 스크립트", styles["h2"]))
+        story.append(Paragraph("주요 화면", styles["h2"]))
         for scene in scenes:
             story.append(Paragraph(f"{scene.index:02d}. {scene.timecode} · {self._pdf_paragraph_text(scene.heading)}", styles["h3"]))
             if scene.image_path and scene.image_path.exists():
@@ -872,21 +895,15 @@ class VideoNotePipeline:
                 if image:
                     story.append(image)
                     story.append(Spacer(1, 3 * mm))
-            if scene.summary:
-                story.append(Paragraph(self._pdf_paragraph_text(scene.summary), styles["body"]))
-            if scene.quote:
-                story.append(Paragraph(self._pdf_paragraph_text(f"대표 발화: {scene.quote}"), styles["quote"]))
-            if scene.why:
-                story.append(Paragraph(self._pdf_paragraph_text(f"선정 이유: {scene.why}"), styles["muted"]))
 
         story.append(PageBreak())
         story.append(Paragraph("전체 스크립트", styles["h2"]))
         for chunk in chunks:
             chunk_title = f"{format_timecode(chunk.start)} - {format_timecode(chunk.end)}"
-            text = (chunk.clean_text or chunk.raw_text).strip()
+            paragraphs = self._transcript_paragraphs(chunk.clean_text or chunk.raw_text)
             story.append(Paragraph(self._pdf_paragraph_text(chunk_title), styles["h3"]))
-            if text:
-                story.append(Paragraph(self._pdf_paragraph_text(text), styles["body"]))
+            for paragraph in paragraphs:
+                story.append(Paragraph(self._pdf_paragraph_text(paragraph), styles["body"]))
 
         def draw_footer(canvas, document):
             canvas.saveState()
