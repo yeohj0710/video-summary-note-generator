@@ -16,7 +16,6 @@ from clipnote_ai.pipeline import PipelineResult, VideoNotePipeline
 from clipnote_ai.settings import (
     DEFAULT_TEXT_MODEL,
     AppSettings,
-    default_download_dir,
     default_output_dir,
     load_settings,
     save_settings,
@@ -311,7 +310,7 @@ class ClipNoteApp(ctk.CTk):
         credit.grid(row=1, column=0, padx=32, pady=(0, 7), sticky="w")
         subtitle = ctk.CTkLabel(
             header,
-            text="릴스, 유튜브, 로컬 동영상을 주요 화면과 전체 전사문 노트로 변환합니다.",
+            text="릴스, 유튜브, 로컬 동영상을 저장하고 읽기 쉬운 전체 스크립트 TXT로 변환합니다.",
             font=self.font_subtitle,
             text_color="#475569",
         )
@@ -493,10 +492,6 @@ class ClipNoteApp(ctk.CTk):
             self.text_model_combo,
             self.output_dir_entry,
             self.output_dir_button,
-            self.auto_scene_checkbox,
-            self.fixed_scene_entry,
-            self.min_scene_entry,
-            self.max_scene_entry,
         ]
 
     def _api_card(self, parent: ctk.CTkBaseClass) -> ctk.CTkFrame:
@@ -543,7 +538,7 @@ class ClipNoteApp(ctk.CTk):
         ctk.CTkLabel(model_grid, text="전사 모델", font=self.font_label, text_color="#334155").grid(
             row=0, column=0, sticky="w"
         )
-        ctk.CTkLabel(model_grid, text="문장/장면 모델", font=self.font_label, text_color="#334155").grid(
+        ctk.CTkLabel(model_grid, text="문장 정리 모델", font=self.font_label, text_color="#334155").grid(
             row=0, column=1, padx=(12, 0), sticky="w"
         )
         self.transcription_model_combo = ctk.CTkComboBox(
@@ -570,7 +565,7 @@ class ClipNoteApp(ctk.CTk):
         return card
 
     def _output_card(self, parent: ctk.CTkBaseClass) -> ctk.CTkFrame:
-        card = self._card(parent, "3. 출력 설정")
+        card = self._card(parent, "3. 저장 설정")
         output_row = ctk.CTkFrame(card, fg_color="transparent")
         output_row.grid(row=1, column=0, padx=22, pady=(0, 16), sticky="ew")
         output_row.grid_columnconfigure(0, weight=1)
@@ -595,72 +590,12 @@ class ClipNoteApp(ctk.CTk):
         )
         self.output_dir_button.grid(row=0, column=1)
 
-        scene_box = ctk.CTkFrame(card, fg_color="#f6f8fb", corner_radius=8)
-        scene_box.grid(row=2, column=0, padx=22, pady=(0, 20), sticky="ew")
-        scene_box.grid_columnconfigure((0, 1, 2), weight=1)
-        self.auto_scene_checkbox = ctk.CTkCheckBox(
-            scene_box,
-            text="장면 수 자동 결정",
-            variable=self.auto_scene_var,
-            command=self._refresh_scene_count_mode,
-            font=self.font_body,
-            checkbox_width=24,
-            checkbox_height=24,
-        )
-        self.auto_scene_checkbox.grid(row=0, column=0, padx=16, pady=(16, 10), sticky="w")
-
-        self.fixed_scene_label = ctk.CTkLabel(scene_box, text="직접 지정", font=self.font_label, text_color="#475569")
-        self.fixed_scene_label.grid(
-            row=1, column=0, padx=16, pady=(0, 7), sticky="w"
-        )
-        self.fixed_scene_entry = ctk.CTkEntry(
-            scene_box,
-            textvariable=self.fixed_scene_var,
-            width=96,
-            height=36,
-            font=self.font_input,
-            corner_radius=7,
-        )
-        self.fixed_scene_entry.grid(
-            row=2, column=0, padx=16, pady=(0, 16), sticky="w"
-        )
-        self.min_scene_label = ctk.CTkLabel(scene_box, text="자동 최소", font=self.font_label, text_color="#475569")
-        self.min_scene_label.grid(
-            row=1, column=1, padx=16, pady=(0, 7), sticky="w"
-        )
-        self.min_scene_entry = ctk.CTkEntry(
-            scene_box,
-            textvariable=self.min_scene_var,
-            width=96,
-            height=36,
-            font=self.font_input,
-            corner_radius=7,
-        )
-        self.min_scene_entry.grid(
-            row=2, column=1, padx=16, pady=(0, 16), sticky="w"
-        )
-        self.max_scene_label = ctk.CTkLabel(scene_box, text="자동 최대", font=self.font_label, text_color="#475569")
-        self.max_scene_label.grid(
-            row=1, column=2, padx=16, pady=(0, 7), sticky="w"
-        )
-        self.max_scene_entry = ctk.CTkEntry(
-            scene_box,
-            textvariable=self.max_scene_var,
-            width=96,
-            height=36,
-            font=self.font_input,
-            corner_radius=7,
-        )
-        self.max_scene_entry.grid(
-            row=2, column=2, padx=16, pady=(0, 16), sticky="w"
-        )
-
         action_row = ctk.CTkFrame(card, fg_color="transparent")
-        action_row.grid(row=3, column=0, padx=22, pady=(0, 24), sticky="ew")
+        action_row.grid(row=2, column=0, padx=22, pady=(0, 24), sticky="ew")
         action_row.grid_columnconfigure(0, weight=1)
         self.start_button = ctk.CTkButton(
             action_row,
-            text="노트 만들기",
+            text="스크립트 만들기",
             height=46,
             corner_radius=8,
             font=ctk.CTkFont(family=self.font_family, size=16, weight="bold"),
@@ -686,7 +621,6 @@ class ClipNoteApp(ctk.CTk):
             command=self._open_latest_output,
         )
         self.open_output_button.grid(row=0, column=1, sticky="e")
-        self._refresh_scene_count_mode()
         return card
 
     def _status_panel(self, parent: ctk.CTkFrame) -> None:
@@ -746,11 +680,10 @@ class ClipNoteApp(ctk.CTk):
             self._refresh_source_mode()
 
     def _ensure_user_folders(self) -> None:
-        for folder in (Path(self.output_dir_var.get()).expanduser(), default_download_dir()):
-            try:
-                folder.mkdir(parents=True, exist_ok=True)
-            except OSError:
-                pass
+        try:
+            Path(self.output_dir_var.get()).expanduser().mkdir(parents=True, exist_ok=True)
+        except OSError:
+            pass
 
     def _choose_output_dir(self) -> None:
         if self.is_processing:
@@ -929,7 +862,7 @@ class ClipNoteApp(ctk.CTk):
             self._set_processing_indicator(False)
             self.start_button.configure(
                 state="normal",
-                text="노트 만들기",
+                text="스크립트 만들기",
                 fg_color=self.primary_color,
                 hover_color=self.primary_hover,
                 text_color="#ffffff",
@@ -1043,7 +976,7 @@ class ClipNoteApp(ctk.CTk):
                 self._set_start_button_busy(False)
                 self._set_controls_locked(False)
                 self._set_output_button_enabled(True)
-                messagebox.showinfo("완료", f"노트가 만들어졌습니다.\n\n{self.latest_result.output_dir}")
+                messagebox.showinfo("완료", f"영상과 스크립트가 저장되었습니다.\n\n{self.latest_result.output_dir}")
             elif kind == "error":
                 self._set_status("오류", 0)
                 self._append_log(str(payload))

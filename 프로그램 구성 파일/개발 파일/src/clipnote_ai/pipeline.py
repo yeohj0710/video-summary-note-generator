@@ -4,6 +4,8 @@ import html
 import json
 import os
 import re
+import shutil
+import tempfile
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -12,7 +14,7 @@ from urllib.parse import urlparse
 
 from openai import OpenAI
 
-from clipnote_ai.settings import AppSettings, default_download_dir
+from clipnote_ai.settings import AppSettings
 from clipnote_ai.utils import (
     clamp_seconds,
     extract_json_object,
@@ -61,13 +63,9 @@ class Scene:
 @dataclass
 class PipelineResult:
     output_dir: Path
-    markdown_path: Path
-    html_path: Path
-    pdf_path: Path
-    docx_path: Path
+    video_path: Path
     transcript_path: Path
     title: str
-    scene_count: int
 
 
 class VideoNotePipeline:
@@ -92,87 +90,70 @@ class VideoNotePipeline:
         output_root = Path(self.settings.output_dir).expanduser().resolve()
         output_root.mkdir(parents=True, exist_ok=True)
 
-        started = time.strftime("%Y%m%d_%H%M%S")
-        job_dir = output_root / f"{started}_processing"
-        job_dir.mkdir(parents=True, exist_ok=False)
+        started = time.strftime("%y%m%d%H%M")
 
-        self.progress("준비 중", 0.02, "작업 폴더를 만들고 있습니다.")
+        self.progress("준비 중", 0.02, "저장할 파일 이름을 준비하고 있습니다.")
 
         if self.is_url(source):
-            video_path, source_title = self._download_video(source, started)
-            source_label = source
+            downloaded_path, source_title = self._download_video(source, started, output_root)
+            source_video_path = downloaded_path
         else:
-            video_path = Path(source).expanduser().resolve()
-            if not video_path.exists():
-                raise FileNotFoundError(f"동영상 파일을 찾을 수 없습니다: {video_path}")
-            source_title = video_path.stem
-            source_label = str(video_path)
+            source_video_path = Path(source).expanduser().resolve()
+            if not source_video_path.exists():
+                raise FileNotFoundError(f"동영상 파일을 찾을 수 없습니다: {source_video_path}")
+            source_title = source_video_path.stem
 
         safe_title = sanitize_filename(source_title)
-        final_dir = output_root / f"{started}_{safe_title}"
-        suffix = 1
-        while final_dir.exists() and final_dir != job_dir:
-            suffix += 1
-            final_dir = output_root / f"{started}_{safe_title}_{suffix}"
-        if final_dir != job_dir:
-            old_job_dir = job_dir
-            try:
-                relative_video_path = video_path.relative_to(old_job_dir)
-            except ValueError:
-                relative_video_path = None
-            job_dir.rename(final_dir)
-            job_dir = final_dir
-            if relative_video_path is not None:
-                video_path = job_dir / relative_video_path
+        final_base = self._unique_output_base(output_root, f"{started} {safe_title}", source_video_path.suffix or ".mp4")
+        video_path = final_base.with_suffix(source_video_path.suffix or ".mp4")
+        transcript_path = final_base.with_suffix(".txt")
 
-        support_dir = job_dir / SUPPORT_DIR_NAME
-        support_dir.mkdir(parents=True, exist_ok=True)
+        if source_video_path.resolve() != video_path.resolve():
+            self.progress("영상 저장 중", 0.10, f"동영상을 결과 폴더에 저장합니다: {video_path.name}")
+            shutil.copy2(source_video_path, video_path)
+            if self.is_url(source):
+                try:
+                    source_video_path.unlink()
+                except OSError:
+                    pass
+        else:
+            video_path = source_video_path
 
         duration = get_media_duration(video_path, self.ffmpeg)
-        self.progress("영상 분석 중", 0.12, f"영상 길이: {format_timecode(duration)}")
+        self.progress("영상 분석 중", 0.14, f"영상 길이: {format_timecode(duration)}")
 
-        chunks = self._extract_audio_chunks(video_path, support_dir, duration)
-        self._transcribe_chunks(chunks)
-        self._clean_chunks(chunks)
+        with tempfile.TemporaryDirectory(prefix="video_note_") as temp_dir:
+            chunks = self._extract_audio_chunks(video_path, Path(temp_dir), duration)
+            self._transcribe_chunks(chunks)
+            self._clean_chunks(chunks)
+            self._write_transcript(transcript_path, chunks)
 
-        transcript_path = self._write_transcript(job_dir, chunks)
-        analysis = self._analyze_scenes(source_title, source_label, duration, chunks)
-        scenes = self._normalize_scenes(analysis, duration, chunks)
-        self._attach_full_transcript_to_scenes(scenes, chunks)
-        self._extract_scene_images(video_path, support_dir, scenes)
-
-        markdown_path = self._render_markdown(support_dir, source_title, source_label, duration, chunks, scenes, analysis)
-        html_path = self._render_html(support_dir, source_title, source_label, duration, chunks, scenes, analysis)
-        pdf_path = self._render_pdf(job_dir, source_title, source_label, duration, chunks, scenes, analysis)
-        docx_path = self._render_docx(support_dir, source_title, source_label, scenes, analysis)
-        self._write_metadata(support_dir, source_title, source_label, duration, scenes, analysis)
-
-        self.progress("완료", 1.0, f"결과 생성 완료: {pdf_path.name}, {transcript_path.name}")
+        self.progress("완료", 1.0, f"결과 생성 완료: {video_path.name}, {transcript_path.name}")
         return PipelineResult(
-            output_dir=job_dir,
-            markdown_path=markdown_path,
-            html_path=html_path,
-            pdf_path=pdf_path,
-            docx_path=docx_path,
+            output_dir=output_root,
+            video_path=video_path,
             transcript_path=transcript_path,
-            title=str(analysis.get("title") or source_title),
-            scene_count=len(scenes),
+            title=source_title,
         )
 
-    def _downloaded_videos_dir(self) -> Path:
-        return default_download_dir()
+    def _unique_output_base(self, output_root: Path, base_name: str, video_suffix: str) -> Path:
+        candidate = output_root / base_name
+        suffix = 1
+        while candidate.with_suffix(video_suffix).exists() or candidate.with_suffix(".txt").exists():
+            suffix += 1
+            candidate = output_root / f"{base_name}_{suffix}"
+        return candidate
 
-    def _download_video(self, url: str, started: str) -> tuple[Path, str]:
-        downloads_dir = self._downloaded_videos_dir()
+    def _download_video(self, url: str, started: str, downloads_dir: Path) -> tuple[Path, str]:
         downloads_dir.mkdir(parents=True, exist_ok=True)
         self.progress(
             "영상 다운로드 중",
             0.05,
-            f"링크 영상을 먼저 저장합니다: {downloads_dir}",
+            f"링크 영상을 결과 폴더에 저장합니다: {downloads_dir}",
         )
         import yt_dlp
 
-        outtmpl = str(downloads_dir / f"{started}_%(title).90s.%(ext)s")
+        outtmpl = str(downloads_dir / f"__download_{started}_%(title).90s.%(ext)s")
         ydl_opts: dict[str, object] = {
             "format": "best[ext=mp4][vcodec!=none][acodec!=none]/best[vcodec!=none][acodec!=none]/bv*+ba/b",
             "outtmpl": outtmpl,
@@ -345,14 +326,12 @@ class VideoNotePipeline:
         )
         return completion.choices[0].message.content or ""
 
-    def _write_transcript(self, job_dir: Path, chunks: list[TranscriptChunk]) -> Path:
-        transcript_path = job_dir / USER_TRANSCRIPT_NAME
-        lines: list[str] = []
+    def _write_transcript(self, transcript_path: Path, chunks: list[TranscriptChunk]) -> Path:
+        paragraphs: list[str] = []
         for chunk in chunks:
             text = self._strip_transcript_labels(chunk.clean_text or chunk.raw_text)
-            lines.extend(self._note_paragraphs(text))
-            lines.append("")
-        transcript_path.write_text("\n".join(lines).strip() + "\n", encoding="utf-8")
+            paragraphs.extend(self._note_paragraphs(text))
+        transcript_path.write_text("\n\n".join(paragraphs).strip() + "\n", encoding="utf-8")
         return transcript_path
 
     def _strip_transcript_labels(self, text: str) -> str:
@@ -402,31 +381,11 @@ class VideoNotePipeline:
             return []
 
         paragraphs: list[str] = []
-        current: list[str] = []
-        current_len = 0
-
-        def flush() -> None:
-            nonlocal current, current_len
-            if current:
-                paragraphs.append(" ".join(current).strip())
-                current = []
-                current_len = 0
-
         for sentence in sentences:
             if len(sentence) > 210:
-                flush()
                 paragraphs.extend(self._split_long_text(sentence, 210))
-                continue
-
-            should_group_short = current and current_len < 72 and len(sentence) < 72 and len(current) < 2
-            if not should_group_short:
-                flush()
-            current.append(sentence)
-            current_len += len(sentence)
-            if current_len >= 150 or len(current) >= 2:
-                flush()
-
-        flush()
+            else:
+                paragraphs.append(sentence)
         return paragraphs
 
     def _split_long_text(self, text: str, max_chars: int = 260) -> list[str]:

@@ -5,7 +5,6 @@ $ProgramFilesDir = Split-Path -Parent $DevRoot
 $RepoRoot = Split-Path -Parent $ProgramFilesDir
 $ProgramDirName = -join ([char[]](0xD504, 0xB85C, 0xADF8, 0xB7A8, 0x20, 0xAD6C, 0xC131, 0x20, 0xD30C, 0xC77C))
 $NotesDirName = -join ([char[]](0xC0DD, 0xC131, 0xB41C, 0x20, 0xB178, 0xD2B8))
-$VideosDirName = -join ([char[]](0xB2E4, 0xC6B4, 0xB85C, 0xB4DC, 0xD55C, 0x20, 0xB3D9, 0xC601, 0xC0C1))
 $GuideFileName = (-join ([char[]](0xC0AC, 0xC6A9, 0xC124, 0xBA85, 0xC11C))) + ".html"
 $ExeBaseName = -join ([char[]](0xB3D9, 0xC601, 0xC0C1, 0x20, 0xC694, 0xC57D, 0x20, 0xB178, 0xD2B8, 0x20, 0xC0DD, 0xC131, 0xAE30))
 $ExeFileName = $ExeBaseName + ".exe"
@@ -72,9 +71,6 @@ Copy-Item (Join-Path $BuiltRuntimeDir "*") $ProgramFilesDir -Recurse -Force
 $NotesDir = Join-Path $RepoRoot $NotesDirName
 New-Item -ItemType Directory -Force -Path $NotesDir | Out-Null
 
-$VideosDir = Join-Path $RepoRoot $VideosDirName
-New-Item -ItemType Directory -Force -Path $VideosDir | Out-Null
-
 $Guide = Join-Path $RepoRoot $GuideFileName
 if (-not (Test-Path $Guide)) {
     throw "HTML guide file was not found: $Guide"
@@ -85,5 +81,4 @@ Write-Host "Done:"
 Write-Host ("  " + $ExeFileName)
 Write-Host ("  " + $GuideFileName)
 Write-Host ("  " + $NotesDirName + "\")
-Write-Host ("  " + $VideosDirName + "\")
 Write-Host ("  " + $ProgramDirName + "\")
