@@ -1,0 +1,14 @@
+# 사용자 실행 결과물
+생성된 노트/**
+다운로드한 동영상/**
+
+# Python / build cache
+__pycache__/
+*.py[cod]
+.pytest_cache/
+build/
+dist/
+*.spec
+
+# local environment
+.venv/
