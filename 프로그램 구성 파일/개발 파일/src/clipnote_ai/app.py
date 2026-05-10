@@ -17,6 +17,7 @@ from clipnote_ai.settings import (
     DEFAULT_TEXT_MODEL,
     AppSettings,
     default_output_dir,
+    is_current_default_output_dir,
     load_settings,
     save_settings,
 )
@@ -1099,12 +1100,14 @@ class ClipNoteApp(ctk.CTk):
         max_scene = as_int(self.max_scene_var.get(), 24, min_scene, 80)
         fixed_scene = as_int(self.fixed_scene_var.get(), 10, 1, 80)
         summary_sentence_count = as_int(self.summary_sentence_var.get(), 30, 3, 160)
+        output_dir = self.output_dir_var.get().strip() or str(default_output_dir())
         settings = AppSettings(
             api_key=self.api_key_var.get().strip(),
             save_api_key=bool(self.save_api_key_var.get()),
             transcription_model=self.transcription_model_var.get().strip() or "gpt-4o-mini-transcribe",
             text_model=self.text_model_var.get().strip() or DEFAULT_TEXT_MODEL,
-            output_dir=self.output_dir_var.get().strip() or str(default_output_dir()),
+            output_dir=output_dir,
+            output_dir_custom=not is_current_default_output_dir(output_dir),
             auto_summary_sentences=bool(self.auto_summary_var.get()),
             summary_sentence_count=summary_sentence_count,
             auto_scene_count=bool(self.auto_scene_var.get()),
