@@ -7,7 +7,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 
-APP_NAME = "VideoSummaryNoteGenerator"
+APP_NAME = "MediaSummaryNoteGenerator"
 DEFAULT_TEXT_MODEL = "gpt-5-nano"
 DEFAULT_OUTPUT_FOLDER_NAME = "생성된 노트"
 DEFAULT_DOWNLOAD_FOLDER_NAME = "다운로드한 영상"

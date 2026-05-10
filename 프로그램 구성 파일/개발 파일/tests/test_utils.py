@@ -10,7 +10,7 @@ def test_format_and_parse_timecode():
 
 def test_sanitize_filename():
     assert sanitize_filename('a/b:c* "clip"') == "a_b_c_ _clip_"
-    assert sanitize_filename("   ") == "video"
+    assert sanitize_filename("   ") == "media"
 
 
 def test_extract_json_object_from_markdown():

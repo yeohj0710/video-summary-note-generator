@@ -7,14 +7,14 @@
 ## 배포 구조
 
 ```text
-video-summary-note-generator/
+media-summary-note-generator/
   영상·음성 요약 노트 생성기.exe
   사용설명서.html
   README.md
   생성된 노트/
   프로그램 구성 파일/
     openai_api_key_guide.html
-    video_source_guide.html
+    media_source_guide.html
 ```
 
 ## 결과물 구조
@@ -33,14 +33,14 @@ video-summary-note-generator/
 ## 개발 실행
 
 ```powershell
-cd "C:\dev\video-summary-note-generator\프로그램 구성 파일\개발 파일"
+cd "C:\dev\media-summary-note-generator\프로그램 구성 파일\개발 파일"
 .\.venv\Scripts\python.exe -m clipnote_ai
 ```
 
 ## 빌드
 
 ```powershell
-cd "C:\dev\video-summary-note-generator\프로그램 구성 파일\개발 파일"
+cd "C:\dev\media-summary-note-generator\프로그램 구성 파일\개발 파일"
 .\build.ps1
 ```
 

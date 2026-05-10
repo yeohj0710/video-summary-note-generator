@@ -1,4 +1,4 @@
-"""Video summary note generator desktop application."""
+"""Media summary note generator desktop application."""
 
 __version__ = "0.1.0"
 

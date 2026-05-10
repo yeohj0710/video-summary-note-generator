@@ -18,7 +18,7 @@ def resource_path(*parts: str) -> Path:
     return base.joinpath(*parts)
 
 
-def sanitize_filename(value: str, fallback: str = "video") -> str:
+def sanitize_filename(value: str, fallback: str = "media") -> str:
     cleaned = "".join("_" if ch in INVALID_FILENAME_CHARS else ch for ch in value)
     cleaned = re.sub(r"\s+", " ", cleaned).strip(" .")
     cleaned = cleaned[:90].strip(" .")

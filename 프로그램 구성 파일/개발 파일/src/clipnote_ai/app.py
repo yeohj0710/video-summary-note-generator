@@ -1369,8 +1369,8 @@ class ClipNoteApp(ctk.CTk):
 
     def _source_guide_path(self) -> Path:
         if getattr(sys, "frozen", False):
-            return Path(sys.executable).resolve().parent / "프로그램 구성 파일" / "video_source_guide.html"
-        return Path(__file__).resolve().parents[2] / "video_source_guide.html"
+            return Path(sys.executable).resolve().parent / "프로그램 구성 파일" / "media_source_guide.html"
+        return Path(__file__).resolve().parents[2] / "media_source_guide.html"
 
     def _open_user_guide(self) -> None:
         path = self._guide_path()

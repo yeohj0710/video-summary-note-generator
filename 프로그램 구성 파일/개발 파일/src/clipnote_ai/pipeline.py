@@ -393,7 +393,7 @@ class VideoNotePipeline:
             cleaned = self._caption_title(candidate)
             if cleaned:
                 return cleaned
-        return "downloaded_video"
+        return "downloaded_media"
 
     @staticmethod
     def _metadata_text(info: dict[str, object], key: str) -> str:
@@ -637,7 +637,7 @@ class VideoNotePipeline:
                 )
             except Exception as retry_exc:
                 raise self._friendly_download_error(url, retry_exc, retried_with_cookies=True) from retry_exc
-        self.progress("영상 다운로드 완료", 0.09, f"저장된 동영상: {downloaded}")
+        self.progress("영상 다운로드 완료", 0.09, f"저장된 영상: {downloaded}")
         return downloaded.resolve(), title
 
     def _extract_audio_chunks(self, video_path: Path, support_dir: Path, duration: float) -> list[TranscriptChunk]:
