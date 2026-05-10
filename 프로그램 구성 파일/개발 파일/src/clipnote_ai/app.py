@@ -12,7 +12,7 @@ import tkinter as tk
 
 import customtkinter as ctk
 
-from clipnote_ai.pipeline import PipelineResult, VideoNotePipeline
+from clipnote_ai.pipeline import PipelineResult, UserFacingError, VideoNotePipeline
 from clipnote_ai.settings import (
     DEFAULT_TEXT_MODEL,
     AppSettings,
@@ -1161,6 +1161,9 @@ class ClipNoteApp(ctk.CTk):
             result = pipeline.run(source)
             self.events.put(("done", result))
         except BaseException as exc:
+            if isinstance(exc, UserFacingError):
+                self.events.put(("error", str(exc)))
+                return
             detail = traceback.format_exc()
             self.events.put(("error", f"{exc}\n\n{detail}"))
 

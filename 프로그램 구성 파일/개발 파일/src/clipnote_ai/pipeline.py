@@ -52,6 +52,10 @@ TRANSCRIPTION_PRICING_USD_PER_MINUTE = {
 }
 
 
+class UserFacingError(RuntimeError):
+    """Error message that is already written for app users."""
+
+
 @dataclass
 class TranscriptChunk:
     index: int
@@ -363,6 +367,50 @@ class VideoNotePipeline:
             return title[: boundary + 1].strip()
         return title[:max_length].rstrip() + "..."
 
+    def _friendly_download_error(self, url: str, error: BaseException) -> UserFacingError:
+        message = str(error)
+        lowered = message.lower()
+        host = urlparse(url.strip()).netloc.lower()
+        needs_cookies = any(
+            phrase in lowered
+            for phrase in (
+                "login required",
+                "cookies",
+                "rate-limit",
+                "requested content is not available",
+                "not available",
+            )
+        )
+        if "instagram.com" in host and needs_cookies:
+            browser = self.settings.cookie_browser or "chrome"
+            if self.settings.use_browser_cookies:
+                return UserFacingError(
+                    "Instagram에서 이 릴스를 바로 다운로드하지 못했습니다.\n\n"
+                    f"현재 '{browser}' 브라우저 쿠키를 사용하도록 설정되어 있지만, 로그인 정보가 없거나 Instagram이 요청을 막았습니다.\n\n"
+                    "확인해 주세요.\n"
+                    "1. 선택한 브라우저에서 Instagram에 로그인되어 있는지 확인\n"
+                    "2. 비공개/삭제된 릴스가 아닌지 확인\n"
+                    "3. 브라우저를 완전히 닫은 뒤 다시 실행\n"
+                    "4. 계속 안 되면 릴스를 직접 저장한 동영상 파일로 넣기"
+                )
+            return UserFacingError(
+                "Instagram에서 로그인이 필요한 릴스라서 다운로드하지 못했습니다.\n\n"
+                "해결 방법:\n"
+                "1. Chrome 또는 Edge에서 Instagram에 로그인\n"
+                "2. 프로그램의 '영상 가져오기'에서 '브라우저 쿠키 사용' 체크\n"
+                "3. 로그인한 브라우저를 선택한 뒤 다시 실행\n\n"
+                "그래도 안 되면 릴스를 직접 저장한 동영상 파일로 넣어 주세요."
+            )
+
+        return UserFacingError(
+            "링크 영상을 다운로드하지 못했습니다.\n\n"
+            "가능한 원인:\n"
+            "- 영상이 비공개이거나 삭제됨\n"
+            "- 사이트에서 로그인 또는 쿠키를 요구함\n"
+            "- 짧은 시간에 요청이 많아 일시적으로 막힘\n\n"
+            "브라우저에서 영상이 정상 재생되는지 확인한 뒤 다시 시도해 주세요."
+        )
+
     def _download_video(self, url: str, started: str, downloads_dir: Path) -> tuple[Path, str]:
         downloads_dir.mkdir(parents=True, exist_ok=True)
         self.progress(
@@ -386,20 +434,25 @@ class VideoNotePipeline:
         if self.settings.use_browser_cookies:
             ydl_opts["cookiesfrombrowser"] = (self.settings.cookie_browser,)
 
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=True)
-            if info is None:
-                raise RuntimeError("영상 정보를 가져오지 못했습니다.")
-            title = self._best_source_title(info)
-            downloaded = Path(ydl.prepare_filename(info))
-            merged = downloaded.with_suffix(".mp4")
-            if merged.exists():
-                downloaded = merged
-            if not downloaded.exists():
-                candidates = sorted(downloads_dir.glob(f"{started}_*"), key=lambda path: path.stat().st_mtime, reverse=True)
-                if not candidates:
-                    raise RuntimeError("다운로드된 영상 파일을 찾지 못했습니다.")
-                downloaded = candidates[0]
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=True)
+                if info is None:
+                    raise RuntimeError("영상 정보를 가져오지 못했습니다.")
+                title = self._best_source_title(info)
+                downloaded = Path(ydl.prepare_filename(info))
+                merged = downloaded.with_suffix(".mp4")
+                if merged.exists():
+                    downloaded = merged
+                if not downloaded.exists():
+                    candidates = sorted(downloads_dir.glob(f"{started}_*"), key=lambda path: path.stat().st_mtime, reverse=True)
+                    if not candidates:
+                        raise RuntimeError("다운로드된 영상 파일을 찾지 못했습니다.")
+                    downloaded = candidates[0]
+        except UserFacingError:
+            raise
+        except Exception as exc:
+            raise self._friendly_download_error(url, exc) from exc
         self.progress("영상 다운로드 완료", 0.09, f"저장된 동영상: {downloaded}")
         return downloaded.resolve(), title
 
