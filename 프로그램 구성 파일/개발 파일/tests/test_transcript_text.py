@@ -72,6 +72,14 @@ def test_summary_target_can_be_set_manually():
     assert pipeline._summary_target_sentence_count("Sentence one. Sentence two.") == 17
 
 
+def test_short_media_uses_single_large_audio_chunk():
+    assert VideoNotePipeline._audio_chunk_seconds(146) == 600
+
+
+def test_long_media_uses_fewer_five_minute_chunks():
+    assert VideoNotePipeline._audio_chunk_seconds(7200) == 300
+
+
 def test_clean_prompt_prefers_korean_for_common_terms(tmp_path: Path):
     pipeline = VideoNotePipeline.__new__(VideoNotePipeline)
     pipeline.progress = lambda *_args, **_kwargs: None
@@ -169,6 +177,36 @@ def test_clean_chunks_can_skip_polish_to_save_cost(tmp_path: Path):
 
     assert calls == []
     assert chunks[0].clean_text == "raw transcript text"
+
+
+def test_asr_repetition_loop_is_collapsed():
+    pipeline = VideoNotePipeline.__new__(VideoNotePipeline)
+    repeated = "초월 하우 크래시. " + ("세이브, " * 60) + "다음 가사입니다."
+
+    cleaned = pipeline._remove_asr_repetition_loops(repeated)
+
+    assert cleaned.count("세이브") <= 3
+    assert "초월 하우 크래시" in cleaned
+    assert "다음 가사입니다" in cleaned
+
+
+def test_write_transcript_collapses_repeated_asr_tail(tmp_path: Path):
+    pipeline = VideoNotePipeline.__new__(VideoNotePipeline)
+    chunks = [
+        TranscriptChunk(
+            index=0,
+            start=0,
+            end=90,
+            path=tmp_path / "audio.mp3",
+            clean_text="정상 문장입니다. " + ("세이브, " * 40),
+        )
+    ]
+
+    transcript_path = pipeline._write_transcript(tmp_path / "note.txt", chunks)
+    text = transcript_path.read_text(encoding="utf-8")
+
+    assert text.count("세이브") <= 3
+    assert "정상 문장입니다" in text
 
 
 class DummyUsage:

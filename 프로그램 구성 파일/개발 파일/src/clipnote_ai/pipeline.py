@@ -53,7 +53,8 @@ AUDIO_EXTENSIONS = {
     ".wav",
     ".wma",
 }
-TRANSCRIPTION_CHUNK_SECONDS = 90
+SHORT_MEDIA_CHUNK_SECONDS = 600
+LONG_MEDIA_CHUNK_SECONDS = 300
 VIDEO_EXTENSIONS = {
     ".3g2",
     ".3gp",
@@ -645,7 +646,7 @@ class VideoNotePipeline:
         self.progress("음성 추출 중", 0.18, "오디오를 전사용 작은 조각으로 나누고 있습니다.")
         chunk_dir = support_dir / "audio_chunks"
         chunk_dir.mkdir(parents=True, exist_ok=True)
-        chunk_seconds = TRANSCRIPTION_CHUNK_SECONDS
+        chunk_seconds = self._audio_chunk_seconds(duration)
         output_pattern = chunk_dir / "chunk_%03d.mp3"
         completed = run_process(
             [
@@ -693,6 +694,12 @@ class VideoNotePipeline:
             elapsed = end
         return chunks
 
+    @staticmethod
+    def _audio_chunk_seconds(duration: float) -> int:
+        if duration <= SHORT_MEDIA_CHUNK_SECONDS:
+            return SHORT_MEDIA_CHUNK_SECONDS
+        return LONG_MEDIA_CHUNK_SECONDS
+
     def _transcribe_chunks(self, chunks: list[TranscriptChunk]) -> None:
         previous_tail = ""
         total = len(chunks)
@@ -703,7 +710,7 @@ class VideoNotePipeline:
                 base_percent,
                 f"{chunk.index + 1}/{total} 조각 전사: {format_timecode(chunk.start)}-{format_timecode(chunk.end)}",
             )
-            chunk.raw_text = self._transcribe_file(chunk.path, previous_tail).strip()
+            chunk.raw_text = self._remove_asr_repetition_loops(self._transcribe_file(chunk.path, previous_tail)).strip()
             self.costs.add_transcription_minutes(
                 self.settings.transcription_model,
                 max(0.0, chunk.end - chunk.start) / 60,
@@ -751,7 +758,7 @@ class VideoNotePipeline:
                 "비용 절약을 위해 맞춤법/띄어쓰기 정리를 건너뛰고 전사 원문을 보존합니다.",
             )
             for chunk in chunks:
-                chunk.clean_text = chunk.raw_text
+                chunk.clean_text = self._remove_asr_repetition_loops(chunk.raw_text)
             return
 
         total = len(chunks)
@@ -765,7 +772,7 @@ class VideoNotePipeline:
             if not chunk.raw_text.strip():
                 chunk.clean_text = ""
                 continue
-            chunk.clean_text = self._clean_chunk_text(chunk).strip()
+            chunk.clean_text = self._remove_asr_repetition_loops(self._clean_chunk_text(chunk)).strip()
 
     def _clean_chunk_text(self, chunk: TranscriptChunk) -> str:
         system = (
@@ -855,7 +862,7 @@ class VideoNotePipeline:
     def _write_transcript(self, transcript_path: Path, chunks: list[TranscriptChunk]) -> Path:
         paragraphs: list[str] = []
         for chunk in chunks:
-            text = self._strip_transcript_labels(chunk.clean_text or chunk.raw_text)
+            text = self._remove_asr_repetition_loops(self._strip_transcript_labels(chunk.clean_text or chunk.raw_text))
             paragraphs.extend(self._note_paragraphs(text))
         transcript_path.write_text("\n\n".join(paragraphs).strip() + "\n", encoding="utf-8")
         return transcript_path
@@ -1005,6 +1012,54 @@ class VideoNotePipeline:
         cleaned = re.sub(r"^\s*\[[0-9:.]+\s*-\s*[0-9:.]+\]\s*", "", text.strip())
         cleaned = re.sub(r"^\s*구간:\s*[0-9:.]+\s*-\s*[0-9:.]+\s*", "", cleaned)
         return cleaned.strip()
+
+    def _remove_asr_repetition_loops(self, text: str) -> str:
+        cleaned = self._collapse_repeated_single_token_runs(text)
+        cleaned = re.sub(r"[ \t]+", " ", cleaned)
+        cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+        return cleaned.strip()
+
+    @staticmethod
+    def _collapse_repeated_single_token_runs(text: str, min_run: int = 8, keep: int = 3) -> str:
+        token_pattern = re.compile(r"[A-Za-z가-힣][A-Za-z가-힣'’-]{0,24}")
+        matches = list(token_pattern.finditer(text))
+        if not matches:
+            return text
+
+        def normalize(token: str) -> str:
+            return re.sub(r"[^A-Za-z가-힣]+", "", token).lower()
+
+        output: list[str] = []
+        last_pos = 0
+        index = 0
+        while index < len(matches):
+            token = normalize(matches[index].group(0))
+            if not token:
+                index += 1
+                continue
+
+            end = index + 1
+            while end < len(matches):
+                separator = text[matches[end - 1].end() : matches[end].start()]
+                if normalize(matches[end].group(0)) != token or not re.fullmatch(r"[\s,，、.]*", separator):
+                    break
+                end += 1
+
+            run_length = end - index
+            if run_length >= min_run:
+                keep_end = matches[index + min(keep, run_length) - 1].end()
+                output.append(text[last_pos:keep_end].rstrip(" ,，、."))
+                output.append(" ...")
+                last_pos = matches[end - 1].end()
+                while last_pos < len(text) and text[last_pos] in " \t,，、.":
+                    last_pos += 1
+                index = end
+                continue
+
+            index += 1
+
+        output.append(text[last_pos:])
+        return "".join(output)
 
     def _split_sentences(self, text: str) -> list[str]:
         normalized = re.sub(r"\s+", " ", text.strip())
