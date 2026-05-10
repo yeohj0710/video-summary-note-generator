@@ -11,6 +11,7 @@ from tkinter import filedialog, font as tkfont, messagebox
 import tkinter as tk
 
 import customtkinter as ctk
+from openai import OpenAI
 
 from clipnote_ai.pipeline import PipelineResult, UserFacingError, VideoNotePipeline
 from clipnote_ai.settings import (
@@ -27,6 +28,9 @@ from clipnote_ai.utils import resource_path
 SOURCE_URL_MODE = "링크로 가져오기"
 SOURCE_FILE_MODE = "내 컴퓨터 파일"
 PRODUCT_NAME = "동영상 요약 노트 생성기"
+CUSTOM_TEXT_MODEL_OPTION = "직접 입력"
+TRANSCRIPTION_MODEL_CHOICES = ["gpt-4o-mini-transcribe", "gpt-4o-transcribe"]
+TEXT_MODEL_CHOICES = ["gpt-5-nano", "gpt-4.1-nano", "gpt-4o-mini", CUSTOM_TEXT_MODEL_OPTION]
 
 
 class SmoothScrollableFrame(ctk.CTkScrollableFrame):
@@ -247,7 +251,13 @@ class ClipNoteApp(ctk.CTk):
         self.api_key_locked = bool(self.settings.api_key.strip())
         self.save_api_key_var = tk.BooleanVar(value=self.settings.save_api_key)
         self.transcription_model_var = tk.StringVar(value=self.settings.transcription_model)
-        self.text_model_var = tk.StringVar(value=self.settings.text_model)
+        saved_text_model = self.settings.text_model.strip() or DEFAULT_TEXT_MODEL
+        if saved_text_model in TEXT_MODEL_CHOICES:
+            self.text_model_var = tk.StringVar(value=saved_text_model)
+            self.custom_text_model_var = tk.StringVar(value="")
+        else:
+            self.text_model_var = tk.StringVar(value=CUSTOM_TEXT_MODEL_OPTION)
+            self.custom_text_model_var = tk.StringVar(value=saved_text_model)
         self.output_dir_var = tk.StringVar(value=self.settings.output_dir or str(default_output_dir()))
         self.auto_summary_var = tk.BooleanVar(value=self.settings.auto_summary_sentences)
         self.summary_sentence_var = tk.StringVar(value=str(self.settings.summary_sentence_count))
@@ -560,6 +570,7 @@ class ClipNoteApp(ctk.CTk):
             self.save_api_key_checkbox,
             self.transcription_model_combo,
             self.text_model_combo,
+            self.custom_text_model_entry,
             self.auto_summary_checkbox,
             self.summary_sentence_entry,
             self.output_dir_entry,
@@ -639,11 +650,7 @@ class ClipNoteApp(ctk.CTk):
         self.transcription_model_combo = ctk.CTkComboBox(
             model_grid,
             variable=self.transcription_model_var,
-            values=[
-                "gpt-4o-mini-transcribe",
-                "gpt-4o-transcribe",
-                "whisper-1",
-            ],
+            values=TRANSCRIPTION_MODEL_CHOICES,
             height=38,
             font=self.font_input,
             dropdown_font=self.font_input,
@@ -662,62 +669,33 @@ class ClipNoteApp(ctk.CTk):
         self.text_model_combo = ctk.CTkComboBox(
             model_grid,
             variable=self.text_model_var,
-            values=[
-                "gpt-5-nano",
-                "gpt-5-mini",
-                "gpt-5.4-nano",
-                "gpt-5.4-mini",
-                "gpt-5.4",
-                "gpt-5.5",
-                "gpt-5",
-                "gpt-4.1-nano",
-                "gpt-4.1-mini",
-                "gpt-4.1",
-                "gpt-4o-mini",
-                "gpt-4o",
-                "o4-mini",
-                "o3-mini",
-                "o3",
-                "o1-mini",
-                "o1",
-                "o1-pro",
-                "gpt-5.5-2026-04-23",
-                "gpt-5.4-2026-03-05",
-                "gpt-5.4-mini-2026-03-17",
-                "gpt-5.4-nano-2026-03-17",
-                "gpt-5-2025-08-07",
-                "gpt-5-mini-2025-08-07",
-                "gpt-5-nano-2025-08-07",
-                "gpt-4.1-2025-04-14",
-                "gpt-4.1-mini-2025-04-14",
-                "gpt-4.1-nano-2025-04-14",
-                "gpt-4o-2024-11-20",
-                "gpt-4o-2024-08-06",
-                "gpt-4o-2024-05-13",
-                "gpt-4o-mini-2024-07-18",
-                "o4-mini-2025-04-16",
-                "o3-2025-04-16",
-                "o3-mini-2025-01-31",
-                "o1-2024-12-17",
-                "o1-mini-2024-09-12",
-                "gpt-4-turbo",
-                "gpt-3.5-turbo",
-            ],
+            values=TEXT_MODEL_CHOICES,
+            command=lambda _value: self._refresh_text_model_mode(),
             height=38,
             font=self.font_input,
             dropdown_font=self.font_input,
             corner_radius=7,
         )
         self.text_model_combo.grid(row=1, column=1, sticky="ew", pady=(7, 0), padx=(12, 0))
+        self.custom_text_model_entry = ctk.CTkEntry(
+            model_grid,
+            textvariable=self.custom_text_model_var,
+            placeholder_text="예: gpt-5.6-nano",
+            height=36,
+            font=self.font_input,
+            corner_radius=7,
+        )
+        self.custom_text_model_entry.grid(row=2, column=1, sticky="ew", pady=(6, 0), padx=(12, 0))
         ctk.CTkLabel(
             model_grid,
-            text="맞춤법 정리와 요약을 맡는 모델입니다.",
+            text="맞춤법 정리와 요약을 맡는 모델입니다. 직접 입력은 모델 존재 확인 후 사용합니다.",
             font=self.font_label,
             text_color="#64748b",
             justify="left",
             anchor="w",
             wraplength=250,
-        ).grid(row=2, column=1, sticky="ew", pady=(6, 0), padx=(12, 0))
+        ).grid(row=3, column=1, sticky="ew", pady=(6, 0), padx=(12, 0))
+        self._refresh_text_model_mode()
         self._refresh_api_key_lock()
         return card
 
@@ -994,6 +972,34 @@ class ClipNoteApp(ctk.CTk):
             self.summary_sentence_label.configure(text_color="#475569")
             self._set_widget_cursor(self.summary_sentence_entry, "")
 
+    def _refresh_text_model_mode(self) -> None:
+        if not hasattr(self, "custom_text_model_entry"):
+            return
+
+        custom_selected = self.text_model_var.get() == CUSTOM_TEXT_MODEL_OPTION
+        if custom_selected:
+            self.custom_text_model_entry.grid()
+        else:
+            self.custom_text_model_entry.grid_remove()
+
+        if self.is_processing or not custom_selected:
+            self.custom_text_model_entry.configure(
+                state="disabled",
+                fg_color="#edf2f7",
+                border_color="#cbd5e1",
+                text_color="#94a3b8",
+            )
+            self._set_widget_cursor(self.custom_text_model_entry, "no" if custom_selected else "")
+            return
+
+        self.custom_text_model_entry.configure(
+            state="normal",
+            fg_color="#ffffff",
+            border_color="#94a3b8",
+            text_color="#111827",
+        )
+        self._set_widget_cursor(self.custom_text_model_entry, "")
+
     def _refresh_scene_count_mode(self) -> None:
         if not hasattr(self, "fixed_scene_entry"):
             return
@@ -1069,7 +1075,7 @@ class ClipNoteApp(ctk.CTk):
                 "border_color": "#cbd5e1",
                 "text_color": "#94a3b8",
             }
-            for entry in (self.url_entry, self.file_entry, self.output_dir_entry):
+            for entry in (self.url_entry, self.file_entry, self.output_dir_entry, self.custom_text_model_entry):
                 entry.configure(**disabled_entry_options)
             for button in (self.file_button, self.output_dir_button):
                 button.configure(
@@ -1082,6 +1088,7 @@ class ClipNoteApp(ctk.CTk):
                 combo.configure(state="disabled", fg_color="#edf2f7", border_color="#cbd5e1", button_color="#cbd5e1")
             self._refresh_api_key_lock()
             self._refresh_summary_mode()
+            self._refresh_text_model_mode()
             self._refresh_scene_count_mode()
             return
 
@@ -1099,6 +1106,7 @@ class ClipNoteApp(ctk.CTk):
             combo.configure(state="normal", fg_color="#ffffff", border_color="#94a3b8", button_color="#9ca3af")
         self._refresh_api_key_lock()
         self._refresh_summary_mode()
+        self._refresh_text_model_mode()
         self._refresh_scene_count_mode()
 
     def _set_start_button_busy(self, busy: bool) -> None:
@@ -1155,11 +1163,17 @@ class ClipNoteApp(ctk.CTk):
         fixed_scene = as_int(self.fixed_scene_var.get(), 10, 1, 80)
         summary_sentence_count = as_int(self.summary_sentence_var.get(), 30, 3, 160)
         output_dir = self.output_dir_var.get().strip() or str(default_output_dir())
+        text_model = self.text_model_var.get().strip() or DEFAULT_TEXT_MODEL
+        if text_model == CUSTOM_TEXT_MODEL_OPTION:
+            text_model = self.custom_text_model_var.get().strip() or DEFAULT_TEXT_MODEL
+        transcription_model = self.transcription_model_var.get().strip() or "gpt-4o-mini-transcribe"
+        if transcription_model not in TRANSCRIPTION_MODEL_CHOICES:
+            transcription_model = "gpt-4o-mini-transcribe"
         settings = AppSettings(
             api_key=self.api_key_var.get().strip(),
             save_api_key=bool(self.save_api_key_var.get()),
-            transcription_model=self.transcription_model_var.get().strip() or "gpt-4o-mini-transcribe",
-            text_model=self.text_model_var.get().strip() or DEFAULT_TEXT_MODEL,
+            transcription_model=transcription_model,
+            text_model=text_model,
             output_dir=output_dir,
             output_dir_custom=not is_current_default_output_dir(output_dir),
             auto_summary_sentences=bool(self.auto_summary_var.get()),
@@ -1174,6 +1188,42 @@ class ClipNoteApp(ctk.CTk):
         save_settings(settings)
         self.settings = settings
         return settings
+
+    def _prepare_text_model_for_start(self, settings: AppSettings) -> AppSettings:
+        if self.text_model_var.get() != CUSTOM_TEXT_MODEL_OPTION:
+            return settings
+
+        custom_model = self.custom_text_model_var.get().strip()
+        if not custom_model:
+            settings.text_model = DEFAULT_TEXT_MODEL
+            self.text_model_var.set(DEFAULT_TEXT_MODEL)
+            self._refresh_text_model_mode()
+            self._append_log(f"직접 입력 모델명이 비어 있어 기본 모델({DEFAULT_TEXT_MODEL})로 진행합니다.")
+            save_settings(settings)
+            self.settings = settings
+            return settings
+
+        self._set_status("모델 확인 중", 0.01)
+        self._append_log(f"직접 입력한 모델 확인 중: {custom_model}")
+        if self._openai_model_exists(settings.api_key, custom_model):
+            settings.text_model = custom_model
+            self._append_log(f"모델 확인 완료: {custom_model}")
+        else:
+            settings.text_model = DEFAULT_TEXT_MODEL
+            self.text_model_var.set(DEFAULT_TEXT_MODEL)
+            self._refresh_text_model_mode()
+            self._append_log(f"모델을 찾지 못해 기본 모델({DEFAULT_TEXT_MODEL})로 진행합니다.")
+        save_settings(settings)
+        self.settings = settings
+        return settings
+
+    @staticmethod
+    def _openai_model_exists(api_key: str, model: str) -> bool:
+        try:
+            OpenAI(api_key=api_key).models.retrieve(model)
+            return True
+        except Exception:
+            return False
 
     def _start_job(self) -> None:
         if self.worker_thread and self.worker_thread.is_alive():
@@ -1197,6 +1247,7 @@ class ClipNoteApp(ctk.CTk):
         if not settings.api_key:
             messagebox.showwarning("API 키 필요", "OpenAI API 키를 입력해 주세요.")
             return
+        settings = self._prepare_text_model_for_start(settings)
 
         self.latest_result = None
         self._set_output_button_enabled(False)
