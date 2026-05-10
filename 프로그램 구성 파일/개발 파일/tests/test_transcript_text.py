@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from clipnote_ai.pipeline import TranscriptChunk, VideoNotePipeline
+from clipnote_ai.pipeline import ApiCostTracker, TranscriptChunk, USD_TO_KRW, VideoNotePipeline
 from clipnote_ai.settings import AppSettings
 
 
@@ -45,6 +45,25 @@ def test_summary_target_can_be_set_manually():
     pipeline.settings = AppSettings(auto_summary_sentences=False, summary_sentence_count=17)
 
     assert pipeline._summary_target_sentence_count("Sentence one. Sentence two.") == 17
+
+
+class DummyUsage:
+    input_tokens = 10_000
+    output_tokens = 2_000
+    input_tokens_details = {"cached_tokens": 1_000}
+
+
+def test_cost_tracker_estimates_text_and_transcription_costs():
+    tracker = ApiCostTracker()
+
+    tracker.add_text_usage("gpt-5-nano", DummyUsage())
+    tracker.add_transcription_minutes("gpt-4o-mini-transcribe", 10)
+    report = tracker.report()
+
+    expected_usd = ((9_000 * 0.05) + (1_000 * 0.005) + (2_000 * 0.40)) / 1_000_000 + 0.03
+    assert abs(report.total_cost_usd - expected_usd) < 0.000001
+    assert round(report.total_cost_krw) == round(expected_usd * USD_TO_KRW)
+    assert "예상 API 비용" in report.format_for_log()
 
 
 def test_write_transcript_omits_internal_time_labels(tmp_path: Path):

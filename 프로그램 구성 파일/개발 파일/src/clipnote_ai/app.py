@@ -1188,6 +1188,7 @@ class ClipNoteApp(ctk.CTk):
                 self.latest_result = payload  # type: ignore[assignment]
                 self._set_status("완료", 1.0)
                 self._append_log(f"완료: {self.latest_result.output_dir}")
+                self._append_log(self.latest_result.cost_report.format_for_log())
                 self._set_start_button_busy(False)
                 self._set_controls_locked(False)
                 self._set_output_button_enabled(True)

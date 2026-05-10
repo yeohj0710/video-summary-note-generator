@@ -36,6 +36,20 @@ USER_TRANSCRIPT_NAME = "전체 스크립트.txt"
 SUPPORT_DIR_NAME = "기타 파일"
 SUPPORT_MARKDOWN_NAME = "요약 노트.md"
 SUPPORT_HTML_NAME = "요약 노트.html"
+USD_TO_KRW = 1459.10
+
+TEXT_MODEL_PRICING_USD_PER_1M = {
+    "gpt-5-nano": (0.05, 0.005, 0.40),
+    "gpt-5.4-mini": (0.75, 0.075, 4.50),
+    "gpt-5.4-nano": (0.05, 0.005, 0.40),
+    "gpt-4.1-mini": (0.40, 0.10, 1.60),
+    "gpt-4.1-nano": (0.10, 0.025, 0.40),
+    "gpt-4o-mini": (0.15, 0.075, 0.60),
+}
+TRANSCRIPTION_PRICING_USD_PER_MINUTE = {
+    "gpt-4o-mini-transcribe": 0.003,
+    "gpt-4o-transcribe": 0.006,
+}
 
 
 @dataclass
@@ -62,12 +76,127 @@ class Scene:
 
 
 @dataclass
+class CostReport:
+    text_input_tokens: int = 0
+    text_cached_input_tokens: int = 0
+    text_output_tokens: int = 0
+    text_cost_usd: float = 0.0
+    transcription_minutes: float = 0.0
+    transcription_cost_usd: float = 0.0
+    unknown_models: tuple[str, ...] = ()
+
+    @property
+    def total_cost_usd(self) -> float:
+        return self.text_cost_usd + self.transcription_cost_usd
+
+    @property
+    def total_cost_krw(self) -> float:
+        return self.total_cost_usd * USD_TO_KRW
+
+    def format_for_log(self) -> str:
+        krw = round(self.total_cost_krw)
+        usd = self.total_cost_usd
+        detail = (
+            f"예상 API 비용: 약 {krw:,}원 "
+            f"(${usd:.4f}, 환율 1달러={USD_TO_KRW:,.0f}원 기준)"
+        )
+        if self.unknown_models:
+            detail += f"\n가격표에 없는 모델은 계산에서 제외됨: {', '.join(self.unknown_models)}"
+        return detail
+
+
+@dataclass
 class PipelineResult:
     output_dir: Path
     video_path: Path
     transcript_path: Path
     summary_path: Path
     title: str
+    cost_report: CostReport
+
+
+class ApiCostTracker:
+    def __init__(self) -> None:
+        self.text_input_tokens = 0
+        self.text_cached_input_tokens = 0
+        self.text_output_tokens = 0
+        self.text_cost_usd = 0.0
+        self.transcription_minutes = 0.0
+        self.transcription_cost_usd = 0.0
+        self.unknown_models: set[str] = set()
+
+    def add_transcription_minutes(self, model: str, minutes: float) -> None:
+        rate = TRANSCRIPTION_PRICING_USD_PER_MINUTE.get(model)
+        self.transcription_minutes += max(0.0, minutes)
+        if rate is None:
+            self.unknown_models.add(model)
+            return
+        self.transcription_cost_usd += max(0.0, minutes) * rate
+
+    def add_text_usage(self, model: str, usage: object) -> None:
+        input_tokens = self._usage_int(usage, ("input_tokens", "prompt_tokens"))
+        output_tokens = self._usage_int(usage, ("output_tokens", "completion_tokens"))
+        cached_tokens = self._cached_tokens(usage)
+
+        self.text_input_tokens += input_tokens
+        self.text_cached_input_tokens += cached_tokens
+        self.text_output_tokens += output_tokens
+
+        pricing = TEXT_MODEL_PRICING_USD_PER_1M.get(model)
+        if pricing is None:
+            self.unknown_models.add(model)
+            return
+
+        input_rate, cached_rate, output_rate = pricing
+        billable_input = max(0, input_tokens - cached_tokens)
+        self.text_cost_usd += (
+            (billable_input * input_rate)
+            + (cached_tokens * cached_rate)
+            + (output_tokens * output_rate)
+        ) / 1_000_000
+
+    def report(self) -> CostReport:
+        return CostReport(
+            text_input_tokens=self.text_input_tokens,
+            text_cached_input_tokens=self.text_cached_input_tokens,
+            text_output_tokens=self.text_output_tokens,
+            text_cost_usd=self.text_cost_usd,
+            transcription_minutes=self.transcription_minutes,
+            transcription_cost_usd=self.transcription_cost_usd,
+            unknown_models=tuple(sorted(self.unknown_models)),
+        )
+
+    @staticmethod
+    def _usage_int(usage: object, names: tuple[str, ...]) -> int:
+        for name in names:
+            value = getattr(usage, name, None)
+            if value is None and isinstance(usage, dict):
+                value = usage.get(name)
+            if value is not None:
+                try:
+                    return int(value)
+                except (TypeError, ValueError):
+                    return 0
+        return 0
+
+    @staticmethod
+    def _cached_tokens(usage: object) -> int:
+        detail_names = ("input_tokens_details", "prompt_tokens_details")
+        for detail_name in detail_names:
+            details = getattr(usage, detail_name, None)
+            if details is None and isinstance(usage, dict):
+                details = usage.get(detail_name)
+            if details is None:
+                continue
+            value = getattr(details, "cached_tokens", None)
+            if value is None and isinstance(details, dict):
+                value = details.get("cached_tokens")
+            if value is not None:
+                try:
+                    return int(value)
+                except (TypeError, ValueError):
+                    return 0
+        return 0
 
 
 class VideoNotePipeline:
@@ -76,6 +205,7 @@ class VideoNotePipeline:
         self.progress = progress or (lambda _message, _percent, _detail: None)
         self.ffmpeg = find_ffmpeg()
         self.client = OpenAI(api_key=settings.api_key)
+        self.costs = ApiCostTracker()
 
     @staticmethod
     def is_url(source: str) -> bool:
@@ -83,6 +213,9 @@ class VideoNotePipeline:
         return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
 
     def run(self, source: str) -> PipelineResult:
+        if not hasattr(self, "costs"):
+            self.costs = ApiCostTracker()
+
         source = source.strip()
         if not source:
             raise ValueError("URL 또는 동영상 파일을 입력해 주세요.")
@@ -140,6 +273,7 @@ class VideoNotePipeline:
             transcript_path=transcript_path,
             summary_path=summary_path,
             title=source_title,
+            cost_report=self.costs.report(),
         )
 
     def _unique_output_base(self, output_root: Path, base_name: str, video_suffix: str) -> Path:
@@ -260,6 +394,10 @@ class VideoNotePipeline:
                 f"{chunk.index + 1}/{total} 조각 전사: {format_timecode(chunk.start)}-{format_timecode(chunk.end)}",
             )
             chunk.raw_text = self._transcribe_file(chunk.path, previous_tail).strip()
+            self.costs.add_transcription_minutes(
+                self.settings.transcription_model,
+                max(0.0, chunk.end - chunk.start) / 60,
+            )
             previous_tail = chunk.raw_text[-600:]
 
     def _transcribe_file(self, path: Path, previous_tail: str) -> str:
@@ -324,6 +462,7 @@ class VideoNotePipeline:
                     {"role": "user", "content": user},
                 ],
             )
+            self.costs.add_text_usage(self.settings.text_model, getattr(response, "usage", None))
             output_text = getattr(response, "output_text", None)
             if output_text:
                 return str(output_text)
@@ -345,6 +484,7 @@ class VideoNotePipeline:
                 {"role": "user", "content": user},
             ],
         )
+        self.costs.add_text_usage(self.settings.text_model, getattr(completion, "usage", None))
         return completion.choices[0].message.content or ""
 
     def _write_transcript(self, transcript_path: Path, chunks: list[TranscriptChunk]) -> Path:
