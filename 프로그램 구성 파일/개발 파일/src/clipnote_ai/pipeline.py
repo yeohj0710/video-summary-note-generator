@@ -647,7 +647,7 @@ class VideoNotePipeline:
         chunk_dir = support_dir / "audio_chunks"
         chunk_dir.mkdir(parents=True, exist_ok=True)
         chunk_seconds = self._audio_chunk_seconds(duration)
-        output_pattern = chunk_dir / "chunk_%03d.mp3"
+        output_pattern = chunk_dir / "chunk_%03d.wav"
         completed = run_process(
             [
                 self.ffmpeg,
@@ -661,8 +661,8 @@ class VideoNotePipeline:
                 "1",
                 "-ar",
                 "16000",
-                "-b:a",
-                "48k",
+                "-c:a",
+                "pcm_s16le",
                 "-f",
                 "segment",
                 "-segment_time",
@@ -675,7 +675,7 @@ class VideoNotePipeline:
         if completed.returncode != 0:
             raise RuntimeError(f"오디오 추출에 실패했습니다.\n{completed.stderr[-1200:]}")
 
-        chunk_paths = sorted(chunk_dir.glob("chunk_*.mp3"))
+        chunk_paths = sorted(chunk_dir.glob("chunk_*.wav"))
         if not chunk_paths:
             raise RuntimeError("추출된 오디오 조각이 없습니다. 영상/오디오 파일에 음성이 있는지 확인해 주세요.")
 
@@ -710,7 +710,7 @@ class VideoNotePipeline:
                 base_percent,
                 f"{chunk.index + 1}/{total} 조각 전사: {format_timecode(chunk.start)}-{format_timecode(chunk.end)}",
             )
-            chunk.raw_text = self._remove_asr_repetition_loops(self._transcribe_file(chunk.path, previous_tail)).strip()
+            chunk.raw_text = self._transcribe_file(chunk.path, previous_tail).strip()
             self.costs.add_transcription_minutes(
                 self.settings.transcription_model,
                 max(0.0, chunk.end - chunk.start) / 60,
@@ -719,6 +719,8 @@ class VideoNotePipeline:
 
     def _transcribe_file(self, path: Path, previous_tail: str) -> str:
         prompt = (
+            "들리는 말, 대사, 가사만 전사해 주세요. 배경음, 무음, 알아듣기 어려운 소리는 추측해서 채우지 말고 생략해 주세요. "
+            "실제 음성보다 긴 문장을 이어서 만들거나, 들리지 않는 후렴/단어를 반복해서 만들지 마세요. "
             "한국어 중심 영상일 수 있습니다. 자연스러운 띄어쓰기와 문장부호를 살려 주세요. "
             "브랜드명, 사이트명, 앱 이름, 버튼명, 기능명, 코드, URL, 전문 약어처럼 실제 표기가 중요한 말은 "
             "알파벳 표기를 보존해 주세요. 다만 일반 명사나 한국어 대화에서 보통 한글로 쓰는 말은 "
@@ -728,8 +730,8 @@ class VideoNotePipeline:
             prompt += f"\n직전 내용 일부: {previous_tail}"
 
         attempts = [
-            {"prompt": prompt},
-            {"language": "ko", "prompt": prompt},
+            {"prompt": prompt, "temperature": 0},
+            {"temperature": 0},
             {},
         ]
         last_error: Exception | None = None
@@ -758,7 +760,7 @@ class VideoNotePipeline:
                 "비용 절약을 위해 맞춤법/띄어쓰기 정리를 건너뛰고 전사 원문을 보존합니다.",
             )
             for chunk in chunks:
-                chunk.clean_text = self._remove_asr_repetition_loops(chunk.raw_text)
+                chunk.clean_text = chunk.raw_text
             return
 
         total = len(chunks)
@@ -772,7 +774,7 @@ class VideoNotePipeline:
             if not chunk.raw_text.strip():
                 chunk.clean_text = ""
                 continue
-            chunk.clean_text = self._remove_asr_repetition_loops(self._clean_chunk_text(chunk)).strip()
+            chunk.clean_text = self._clean_chunk_text(chunk).strip()
 
     def _clean_chunk_text(self, chunk: TranscriptChunk) -> str:
         system = (
@@ -789,36 +791,38 @@ class VideoNotePipeline:
         )
         user = f"구간: {format_timecode(chunk.start)}-{format_timecode(chunk.end)}\n\n{chunk.raw_text}"
         cleaned = self._text_response(system=system, user=user).strip()
-        if not self._is_suspiciously_short_clean_text(chunk.raw_text, cleaned):
+        if not self._is_suspicious_clean_text(chunk.raw_text, cleaned):
             return cleaned
 
         retry = self._text_response(
             system=(
                 system
-                + " 이전 응답이 원문보다 너무 짧으면 실패다. 이번에는 한 문장도 생략하지 말고 전체 전사문을 모두 반환한다."
+                + " 이전 응답이 원문보다 너무 짧거나 길면 실패다. 이번에는 한 문장도 생략하지 말고, 원문에 없는 반복이나 새 내용을 추가하지 말고, 전체 전사문을 모두 반환한다."
             ),
             user=user,
         ).strip()
-        if not self._is_suspiciously_short_clean_text(chunk.raw_text, retry):
+        if not self._is_suspicious_clean_text(chunk.raw_text, retry):
             return retry
 
         self.progress(
             "문장 다듬기 보정",
             0.68,
-            f"{chunk.index + 1}번 조각의 정리 결과가 너무 짧아 원문 전사문을 보존합니다.",
+            f"{chunk.index + 1}번 조각의 정리 결과가 원문 길이와 크게 달라 원문 전사문을 보존합니다.",
         )
         return chunk.raw_text
 
-    def _is_suspiciously_short_clean_text(self, raw_text: str, clean_text: str) -> bool:
+    def _is_suspicious_clean_text(self, raw_text: str, clean_text: str) -> bool:
         raw = self._strip_transcript_labels(raw_text)
         clean = self._strip_transcript_labels(clean_text)
         raw_compact = re.sub(r"\s+", "", raw)
         clean_compact = re.sub(r"\s+", "", clean)
-        if len(raw_compact) < 260:
-            return False
         if not clean_compact:
             return True
+        if len(raw_compact) < 260:
+            return len(clean_compact) > max(len(raw_compact) * 2.0, len(raw_compact) + 220)
         if len(clean_compact) < len(raw_compact) * 0.60:
+            return True
+        if len(clean_compact) > len(raw_compact) * 1.45:
             return True
 
         raw_sentence_count = len(self._split_sentences(raw))
@@ -862,7 +866,7 @@ class VideoNotePipeline:
     def _write_transcript(self, transcript_path: Path, chunks: list[TranscriptChunk]) -> Path:
         paragraphs: list[str] = []
         for chunk in chunks:
-            text = self._remove_asr_repetition_loops(self._strip_transcript_labels(chunk.clean_text or chunk.raw_text))
+            text = self._strip_transcript_labels(chunk.clean_text or chunk.raw_text)
             paragraphs.extend(self._note_paragraphs(text))
         transcript_path.write_text("\n\n".join(paragraphs).strip() + "\n", encoding="utf-8")
         return transcript_path
@@ -1012,54 +1016,6 @@ class VideoNotePipeline:
         cleaned = re.sub(r"^\s*\[[0-9:.]+\s*-\s*[0-9:.]+\]\s*", "", text.strip())
         cleaned = re.sub(r"^\s*구간:\s*[0-9:.]+\s*-\s*[0-9:.]+\s*", "", cleaned)
         return cleaned.strip()
-
-    def _remove_asr_repetition_loops(self, text: str) -> str:
-        cleaned = self._collapse_repeated_single_token_runs(text)
-        cleaned = re.sub(r"[ \t]+", " ", cleaned)
-        cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
-        return cleaned.strip()
-
-    @staticmethod
-    def _collapse_repeated_single_token_runs(text: str, min_run: int = 8, keep: int = 3) -> str:
-        token_pattern = re.compile(r"[A-Za-z가-힣][A-Za-z가-힣'’-]{0,24}")
-        matches = list(token_pattern.finditer(text))
-        if not matches:
-            return text
-
-        def normalize(token: str) -> str:
-            return re.sub(r"[^A-Za-z가-힣]+", "", token).lower()
-
-        output: list[str] = []
-        last_pos = 0
-        index = 0
-        while index < len(matches):
-            token = normalize(matches[index].group(0))
-            if not token:
-                index += 1
-                continue
-
-            end = index + 1
-            while end < len(matches):
-                separator = text[matches[end - 1].end() : matches[end].start()]
-                if normalize(matches[end].group(0)) != token or not re.fullmatch(r"[\s,，、.]*", separator):
-                    break
-                end += 1
-
-            run_length = end - index
-            if run_length >= min_run:
-                keep_end = matches[index + min(keep, run_length) - 1].end()
-                output.append(text[last_pos:keep_end].rstrip(" ,，、."))
-                output.append(" ...")
-                last_pos = matches[end - 1].end()
-                while last_pos < len(text) and text[last_pos] in " \t,，、.":
-                    last_pos += 1
-                index = end
-                continue
-
-            index += 1
-
-        output.append(text[last_pos:])
-        return "".join(output)
 
     def _split_sentences(self, text: str) -> list[str]:
         normalized = re.sub(r"\s+", " ", text.strip())

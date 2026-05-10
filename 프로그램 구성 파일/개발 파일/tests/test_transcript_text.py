@@ -1,5 +1,7 @@
 from pathlib import Path
+from types import SimpleNamespace
 
+from clipnote_ai import pipeline as pipeline_module
 from clipnote_ai.pipeline import (
     TEXT_MODEL_PRICING_USD_PER_1M,
     ApiCostTracker,
@@ -80,6 +82,54 @@ def test_long_media_uses_fewer_five_minute_chunks():
     assert VideoNotePipeline._audio_chunk_seconds(7200) == 300
 
 
+def test_audio_extraction_uses_lossless_wav_chunks(tmp_path: Path, monkeypatch):
+    pipeline = VideoNotePipeline.__new__(VideoNotePipeline)
+    pipeline.ffmpeg = "ffmpeg"
+    pipeline.progress = lambda *_args, **_kwargs: None
+    source = tmp_path / "source.mp4"
+    source.write_bytes(b"fake")
+    support_dir = tmp_path / "support"
+    captured: list[str] = []
+
+    def fake_run_process(args: list[object]):
+        captured.extend(str(arg) for arg in args)
+        chunk_dir = support_dir / "audio_chunks"
+        chunk_dir.mkdir(parents=True, exist_ok=True)
+        (chunk_dir / "chunk_000.wav").write_bytes(b"fake-wav")
+        return SimpleNamespace(returncode=0, stderr="")
+
+    monkeypatch.setattr(pipeline_module, "run_process", fake_run_process)
+    monkeypatch.setattr(pipeline_module, "get_media_duration", lambda *_args: 12.0)
+
+    chunks = pipeline._extract_audio_chunks(source, support_dir, 12.0)
+
+    assert chunks[0].path.suffix == ".wav"
+    assert "pcm_s16le" in captured
+    assert "-b:a" not in captured
+
+
+def test_transcribe_uses_deterministic_no_guess_request(tmp_path: Path):
+    pipeline = VideoNotePipeline.__new__(VideoNotePipeline)
+    pipeline.settings = AppSettings(transcription_model="gpt-4o-mini-transcribe")
+    audio = tmp_path / "chunk.wav"
+    audio.write_bytes(b"fake")
+    calls: list[dict[str, object]] = []
+
+    class FakeTranscriptions:
+        def create(self, **kwargs):
+            calls.append(kwargs)
+            return "들리는 말만 전사합니다."
+
+    pipeline.client = SimpleNamespace(audio=SimpleNamespace(transcriptions=FakeTranscriptions()))
+
+    text = pipeline._transcribe_file(audio, "")
+
+    assert text == "들리는 말만 전사합니다."
+    assert calls[0]["temperature"] == 0
+    assert "language" not in calls[0]
+    assert "추측" in str(calls[0]["prompt"])
+
+
 def test_clean_prompt_prefers_korean_for_common_terms(tmp_path: Path):
     pipeline = VideoNotePipeline.__new__(VideoNotePipeline)
     pipeline.progress = lambda *_args, **_kwargs: None
@@ -157,6 +207,55 @@ def test_clean_chunks_accepts_complete_clean_text(tmp_path: Path):
     assert chunks[0].clean_text == cleaned
 
 
+def test_clean_chunks_rejects_text_that_expands_too_much(tmp_path: Path):
+    pipeline = VideoNotePipeline.__new__(VideoNotePipeline)
+    pipeline.progress = lambda *_args, **_kwargs: None
+    raw = " ".join(f"원문 문장 {index}입니다." for index in range(1, 41))
+    bloated = raw + " " + ("원문에 없는 반복입니다. " * 80)
+    calls: list[str] = []
+
+    def fake_text_response(system: str, user: str) -> str:
+        calls.append(user)
+        return bloated
+
+    pipeline._text_response = fake_text_response
+    chunks = [
+        TranscriptChunk(
+            index=0,
+            start=0,
+            end=90,
+            path=tmp_path / "audio.wav",
+            raw_text=raw,
+        )
+    ]
+
+    pipeline._clean_chunks(chunks)
+
+    assert len(calls) == 2
+    assert chunks[0].clean_text == raw
+
+
+def test_clean_chunks_rejects_short_text_that_expands_too_much(tmp_path: Path):
+    pipeline = VideoNotePipeline.__new__(VideoNotePipeline)
+    pipeline.progress = lambda *_args, **_kwargs: None
+    raw = "캡컷에서 Overlay 버튼을 누르고 다른 영상을 불러와 크기와 위치를 맞추세요."
+    bloated = raw + "\n\n" + ("원문에 없는 긴 설명입니다. " * 35)
+    pipeline._text_response = lambda **_kwargs: bloated
+    chunks = [
+        TranscriptChunk(
+            index=0,
+            start=0,
+            end=20,
+            path=tmp_path / "audio.wav",
+            raw_text=raw,
+        )
+    ]
+
+    pipeline._clean_chunks(chunks)
+
+    assert chunks[0].clean_text == raw
+
+
 def test_clean_chunks_can_skip_polish_to_save_cost(tmp_path: Path):
     pipeline = VideoNotePipeline.__new__(VideoNotePipeline)
     pipeline.settings = AppSettings(polish_transcript=False)
@@ -177,36 +276,6 @@ def test_clean_chunks_can_skip_polish_to_save_cost(tmp_path: Path):
 
     assert calls == []
     assert chunks[0].clean_text == "raw transcript text"
-
-
-def test_asr_repetition_loop_is_collapsed():
-    pipeline = VideoNotePipeline.__new__(VideoNotePipeline)
-    repeated = "초월 하우 크래시. " + ("세이브, " * 60) + "다음 가사입니다."
-
-    cleaned = pipeline._remove_asr_repetition_loops(repeated)
-
-    assert cleaned.count("세이브") <= 3
-    assert "초월 하우 크래시" in cleaned
-    assert "다음 가사입니다" in cleaned
-
-
-def test_write_transcript_collapses_repeated_asr_tail(tmp_path: Path):
-    pipeline = VideoNotePipeline.__new__(VideoNotePipeline)
-    chunks = [
-        TranscriptChunk(
-            index=0,
-            start=0,
-            end=90,
-            path=tmp_path / "audio.mp3",
-            clean_text="정상 문장입니다. " + ("세이브, " * 40),
-        )
-    ]
-
-    transcript_path = pipeline._write_transcript(tmp_path / "note.txt", chunks)
-    text = transcript_path.read_text(encoding="utf-8")
-
-    assert text.count("세이브") <= 3
-    assert "정상 문장입니다" in text
 
 
 class DummyUsage:
