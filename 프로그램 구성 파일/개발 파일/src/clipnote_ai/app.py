@@ -348,7 +348,7 @@ class ClipNoteApp(ctk.CTk):
         right = ctk.CTkFrame(body, fg_color="#ffffff", corner_radius=10)
         right.grid(row=0, column=1, sticky="nsew", padx=(12, 24), pady=24)
         right.grid_columnconfigure(0, weight=1)
-        right.grid_rowconfigure(3, weight=1)
+        right.grid_rowconfigure(4, weight=1)
 
         self._source_card(left).grid(row=0, column=0, sticky="ew", pady=(0, 14))
         self._api_card(left).grid(row=1, column=0, sticky="ew", pady=(0, 14))
@@ -365,6 +365,19 @@ class ClipNoteApp(ctk.CTk):
         label.grid(row=0, column=0, padx=22, pady=(20, 12), sticky="w")
         return card
 
+    def _helper_label(self, parent: ctk.CTkBaseClass, text: str, row: int, padx: int = 22) -> ctk.CTkLabel:
+        label = ctk.CTkLabel(
+            parent,
+            text=text,
+            font=self.font_label,
+            text_color="#64748b",
+            justify="left",
+            anchor="w",
+            wraplength=560,
+        )
+        label.grid(row=row, column=0, padx=padx, pady=(0, 12), sticky="ew")
+        return label
+
     def _source_card(self, parent: ctk.CTkBaseClass) -> ctk.CTkFrame:
         card = self._card(parent, "1. 영상 가져오기")
         self.source_guide_button = ctk.CTkButton(
@@ -380,9 +393,10 @@ class ClipNoteApp(ctk.CTk):
             command=self._open_source_guide,
         )
         self.source_guide_button.grid(row=0, column=0, padx=22, pady=(18, 12), sticky="e")
+        self._helper_label(card, "유튜브/릴스 링크를 붙여넣거나, PC에 저장된 영상 파일을 선택하는 곳입니다.", 1)
 
         ctk.CTkLabel(card, text="가져올 방식", font=self.font_label, text_color="#334155").grid(
-            row=1, column=0, padx=22, pady=(0, 8), sticky="w"
+            row=2, column=0, padx=22, pady=(0, 8), sticky="w"
         )
         self.source_mode_switch = ctk.CTkSegmentedButton(
             card,
@@ -400,7 +414,7 @@ class ClipNoteApp(ctk.CTk):
             text_color="#1f2937",
             text_color_disabled="#94a3b8",
         )
-        self.source_mode_switch.grid(row=2, column=0, padx=22, pady=(0, 16), sticky="ew")
+        self.source_mode_switch.grid(row=3, column=0, padx=22, pady=(0, 16), sticky="ew")
 
         self.url_panel = ctk.CTkFrame(card, fg_color="#f6f8fb", corner_radius=8)
         self.url_panel.grid_columnconfigure(0, weight=1)
@@ -419,9 +433,18 @@ class ClipNoteApp(ctk.CTk):
             corner_radius=7,
         )
         self.url_entry.grid(row=1, column=0, padx=16, pady=(0, 14), sticky="ew")
+        ctk.CTkLabel(
+            self.url_panel,
+            text="브라우저 주소창의 영상 주소를 그대로 복사해서 붙여넣으면 됩니다.",
+            font=self.font_label,
+            text_color="#64748b",
+            justify="left",
+            anchor="w",
+            wraplength=520,
+        ).grid(row=2, column=0, padx=16, pady=(0, 12), sticky="ew")
 
         cookie_row = ctk.CTkFrame(self.url_panel, fg_color="#ffffff", corner_radius=8)
-        cookie_row.grid(row=2, column=0, padx=16, pady=(0, 16), sticky="ew")
+        cookie_row.grid(row=3, column=0, padx=16, pady=(0, 16), sticky="ew")
         cookie_row.grid_columnconfigure(1, weight=1)
         self.use_cookies_checkbox = ctk.CTkCheckBox(
             cookie_row,
@@ -443,6 +466,15 @@ class ClipNoteApp(ctk.CTk):
             corner_radius=7,
         )
         self.cookie_browser_combo.grid(row=0, column=1, padx=(0, 14), pady=12, sticky="e")
+        ctk.CTkLabel(
+            cookie_row,
+            text="로그인이 필요한 릴스/유튜브가 안 받아질 때만 켜세요.",
+            font=self.font_label,
+            text_color="#64748b",
+            justify="left",
+            anchor="w",
+            wraplength=480,
+        ).grid(row=1, column=0, columnspan=2, padx=14, pady=(0, 12), sticky="ew")
 
         self.file_panel = ctk.CTkFrame(card, fg_color="#f6f8fb", corner_radius=8)
         self.file_panel.grid_columnconfigure(0, weight=1)
@@ -476,6 +508,15 @@ class ClipNoteApp(ctk.CTk):
             command=self._choose_video_file,
         )
         self.file_button.grid(row=0, column=1, sticky="e")
+        ctk.CTkLabel(
+            self.file_panel,
+            text="녹화 파일이나 이미 다운로드된 영상은 이 방식이 가장 안정적입니다.",
+            font=self.font_label,
+            text_color="#64748b",
+            justify="left",
+            anchor="w",
+            wraplength=520,
+        ).grid(row=2, column=0, padx=16, pady=(0, 14), sticky="ew")
 
         self._refresh_source_mode()
         return card
@@ -485,10 +526,10 @@ class ClipNoteApp(ctk.CTk):
             return
         if self.source_type.get() == SOURCE_FILE_MODE:
             self.url_panel.grid_remove()
-            self.file_panel.grid(row=3, column=0, padx=22, pady=(0, 22), sticky="ew")
+            self.file_panel.grid(row=4, column=0, padx=22, pady=(0, 22), sticky="ew")
         else:
             self.file_panel.grid_remove()
-            self.url_panel.grid(row=3, column=0, padx=22, pady=(0, 22), sticky="ew")
+            self.url_panel.grid(row=4, column=0, padx=22, pady=(0, 22), sticky="ew")
 
     def _is_url_mode(self) -> bool:
         return self.source_type.get() != SOURCE_FILE_MODE
@@ -529,12 +570,13 @@ class ClipNoteApp(ctk.CTk):
             command=self._open_api_key_guide,
         )
         self.api_key_guide_button.grid(row=0, column=0, padx=22, pady=(18, 12), sticky="e")
+        self._helper_label(card, "전사와 요약을 만들기 위해 본인 OpenAI API 키를 입력하는 곳입니다.", 1)
         ctk.CTkLabel(card, text="API 키", font=self.font_label, text_color="#334155").grid(
-            row=1, column=0, padx=22, pady=(0, 7), sticky="w"
+            row=2, column=0, padx=22, pady=(0, 7), sticky="w"
         )
 
         api_key_row = ctk.CTkFrame(card, fg_color="transparent")
-        api_key_row.grid(row=2, column=0, padx=22, pady=(0, 12), sticky="ew")
+        api_key_row.grid(row=3, column=0, padx=22, pady=(0, 8), sticky="ew")
         api_key_row.grid_columnconfigure(0, weight=1)
         self.api_key_entry = ctk.CTkEntry(
             api_key_row,
@@ -555,6 +597,15 @@ class ClipNoteApp(ctk.CTk):
             command=self._toggle_api_key_lock,
         )
         self.api_key_lock_button.grid(row=0, column=1)
+        ctk.CTkLabel(
+            card,
+            text="설정을 누르면 키 입력칸이 잠깁니다. 다시 바꾸려면 수정 버튼을 누르세요.",
+            font=self.font_label,
+            text_color="#64748b",
+            justify="left",
+            anchor="w",
+            wraplength=560,
+        ).grid(row=4, column=0, padx=22, pady=(0, 12), sticky="ew")
         self.save_api_key_checkbox = ctk.CTkCheckBox(
             card,
             text="이 PC에 API 키 저장",
@@ -563,10 +614,10 @@ class ClipNoteApp(ctk.CTk):
             checkbox_width=24,
             checkbox_height=24,
         )
-        self.save_api_key_checkbox.grid(row=3, column=0, padx=22, pady=(0, 18), sticky="w")
+        self.save_api_key_checkbox.grid(row=5, column=0, padx=22, pady=(0, 18), sticky="w")
 
         model_grid = ctk.CTkFrame(card, fg_color="transparent")
-        model_grid.grid(row=4, column=0, padx=22, pady=(0, 22), sticky="ew")
+        model_grid.grid(row=6, column=0, padx=22, pady=(0, 22), sticky="ew")
         model_grid.grid_columnconfigure((0, 1), weight=1)
         ctk.CTkLabel(model_grid, text="전사 모델", font=self.font_label, text_color="#334155").grid(
             row=0, column=0, sticky="w"
@@ -584,6 +635,15 @@ class ClipNoteApp(ctk.CTk):
             corner_radius=7,
         )
         self.transcription_model_combo.grid(row=1, column=0, sticky="ew", pady=(7, 0), padx=(0, 12))
+        ctk.CTkLabel(
+            model_grid,
+            text="영상 음성을 글자로 바꾸는 모델입니다.",
+            font=self.font_label,
+            text_color="#64748b",
+            justify="left",
+            anchor="w",
+            wraplength=250,
+        ).grid(row=2, column=0, sticky="ew", pady=(6, 0), padx=(0, 12))
         self.text_model_combo = ctk.CTkComboBox(
             model_grid,
             variable=self.text_model_var,
@@ -594,11 +654,21 @@ class ClipNoteApp(ctk.CTk):
             corner_radius=7,
         )
         self.text_model_combo.grid(row=1, column=1, sticky="ew", pady=(7, 0), padx=(12, 0))
+        ctk.CTkLabel(
+            model_grid,
+            text="맞춤법 정리와 요약을 맡는 모델입니다.",
+            font=self.font_label,
+            text_color="#64748b",
+            justify="left",
+            anchor="w",
+            wraplength=250,
+        ).grid(row=2, column=1, sticky="ew", pady=(6, 0), padx=(12, 0))
         self._refresh_api_key_lock()
         return card
 
     def _summary_card(self, parent: ctk.CTkBaseClass) -> ctk.CTkFrame:
         card = self._card(parent, "3. 요약 설정")
+        self._helper_label(card, "요약 TXT가 얼마나 길게 만들어질지 정하는 곳입니다. 처음에는 자동을 추천합니다.", 1)
         self.auto_summary_checkbox = ctk.CTkCheckBox(
             card,
             text="자동으로 요약 길이 결정",
@@ -608,10 +678,10 @@ class ClipNoteApp(ctk.CTk):
             checkbox_width=24,
             checkbox_height=24,
         )
-        self.auto_summary_checkbox.grid(row=1, column=0, padx=22, pady=(0, 12), sticky="w")
+        self.auto_summary_checkbox.grid(row=2, column=0, padx=22, pady=(0, 12), sticky="w")
 
         summary_box = ctk.CTkFrame(card, fg_color="#f6f8fb", corner_radius=8)
-        summary_box.grid(row=2, column=0, padx=22, pady=(0, 22), sticky="ew")
+        summary_box.grid(row=3, column=0, padx=22, pady=(0, 22), sticky="ew")
         summary_box.grid_columnconfigure((0, 1), weight=1)
 
         self.summary_sentence_label = ctk.CTkLabel(
@@ -630,12 +700,24 @@ class ClipNoteApp(ctk.CTk):
             corner_radius=7,
         )
         self.summary_sentence_entry.grid(row=1, column=0, padx=16, pady=(0, 14), sticky="w")
+        ctk.CTkLabel(
+            summary_box,
+            text="자동 체크를 끄면 요약을 대략 몇 문장으로 만들지 직접 정할 수 있습니다.",
+            font=self.font_label,
+            text_color="#64748b",
+            justify="left",
+            anchor="w",
+            wraplength=250,
+        ).grid(row=2, column=0, padx=16, pady=(0, 14), sticky="ew")
 
         ctk.CTkLabel(
             summary_box,
             text="자동 기준: 전체 스크립트 문장의 약 1/5",
             font=self.font_label,
             text_color="#64748b",
+            justify="right",
+            anchor="e",
+            wraplength=250,
         ).grid(row=1, column=1, padx=16, pady=(0, 14), sticky="e")
 
         self._refresh_summary_mode()
@@ -643,8 +725,9 @@ class ClipNoteApp(ctk.CTk):
 
     def _output_card(self, parent: ctk.CTkBaseClass) -> ctk.CTkFrame:
         card = self._card(parent, "4. 저장 설정")
+        self._helper_label(card, "완성된 영상, 전체 스크립트 TXT, 요약 TXT가 저장될 폴더입니다.", 1)
         output_row = ctk.CTkFrame(card, fg_color="transparent")
-        output_row.grid(row=1, column=0, padx=22, pady=(0, 16), sticky="ew")
+        output_row.grid(row=2, column=0, padx=22, pady=(0, 10), sticky="ew")
         output_row.grid_columnconfigure(0, weight=1)
         self.output_dir_entry = ctk.CTkEntry(
             output_row,
@@ -666,9 +749,18 @@ class ClipNoteApp(ctk.CTk):
             command=self._choose_output_dir,
         )
         self.output_dir_button.grid(row=0, column=1)
+        ctk.CTkLabel(
+            card,
+            text="기본값은 repo 안의 '생성된 노트' 폴더입니다. 결과 파일을 찾기 쉬우면 그대로 두면 됩니다.",
+            font=self.font_label,
+            text_color="#64748b",
+            justify="left",
+            anchor="w",
+            wraplength=560,
+        ).grid(row=3, column=0, padx=22, pady=(0, 16), sticky="ew")
 
         action_row = ctk.CTkFrame(card, fg_color="transparent")
-        action_row.grid(row=2, column=0, padx=22, pady=(0, 24), sticky="ew")
+        action_row.grid(row=4, column=0, padx=22, pady=(0, 24), sticky="ew")
         action_row.grid_columnconfigure(0, weight=1)
         self.start_button = ctk.CTkButton(
             action_row,
@@ -712,8 +804,17 @@ class ClipNoteApp(ctk.CTk):
         ctk.CTkLabel(parent, text="진행 상황", font=self.font_section_title, text_color="#111827").grid(
             row=0, column=0, padx=22, pady=(22, 10), sticky="w"
         )
+        ctk.CTkLabel(
+            parent,
+            text="현재 작업 단계와 자세한 처리 기록을 보여줍니다.",
+            font=self.font_label,
+            text_color="#64748b",
+            justify="left",
+            anchor="w",
+            wraplength=420,
+        ).grid(row=1, column=0, padx=22, pady=(0, 10), sticky="ew")
         status_row = ctk.CTkFrame(parent, fg_color="transparent")
-        status_row.grid(row=1, column=0, padx=22, pady=(0, 10), sticky="ew")
+        status_row.grid(row=2, column=0, padx=22, pady=(0, 10), sticky="ew")
         status_row.grid_columnconfigure(1, weight=1)
         self.activity_spinner = ActivitySpinner(
             status_row,
@@ -731,7 +832,7 @@ class ClipNoteApp(ctk.CTk):
             corner_radius=5,
             progress_color=self.primary_color,
         )
-        self.progress_bar.grid(row=2, column=0, padx=22, pady=(0, 18), sticky="ew")
+        self.progress_bar.grid(row=3, column=0, padx=22, pady=(0, 18), sticky="ew")
         self.progress_bar.set(0)
         self.log_box = ctk.CTkTextbox(
             parent,
@@ -745,7 +846,7 @@ class ClipNoteApp(ctk.CTk):
             scrollbar_button_color="#475569",
             scrollbar_button_hover_color="#64748b",
         )
-        self.log_box.grid(row=3, column=0, padx=22, pady=(0, 22), sticky="nsew")
+        self.log_box.grid(row=4, column=0, padx=22, pady=(0, 22), sticky="nsew")
         self.log_box.insert("end", "준비되었습니다.\n")
         self.log_box.configure(state="disabled")
 
