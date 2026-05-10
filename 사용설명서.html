@@ -31,6 +31,7 @@
     }
     h1 { margin: 0 0 10px; font-size: 34px; line-height: 1.2; }
     h2 { margin: 34px 0 12px; font-size: 24px; }
+    h3 { margin: 22px 0 8px; font-size: 18px; }
     p { margin: 0 0 12px; }
     ul, ol { padding-left: 24px; }
     li { margin: 6px 0; }
@@ -81,80 +82,54 @@
       background: #eff6ff;
       color: #1e3a8a;
     }
-    .guide-image {
-      display: block;
-      width: 100%;
-      max-width: 760px;
-      margin: 16px 0 6px;
-      border: 1px solid var(--line);
-      border-radius: 10px;
-    }
   </style>
 </head>
 <body>
   <main>
     <h1>영상·음성 요약 노트 생성기 사용설명서</h1>
-    <p class="lead">영상이나 오디오를 넣으면 원본 파일, 읽기 쉬운 전체 스크립트 TXT, 상세 요약 TXT를 같은 이름으로 만들어 주는 프로그램입니다.</p>
+    <p class="lead">영상이나 오디오를 넣으면 원본 파일, 전체 스크립트 TXT, 상세 요약 TXT를 같은 이름으로 만들어 주는 프로그램입니다.</p>
     <div class="credit">developed by yeohj0710</div>
 
-    <h2>GitHub에서 다운로드하는 방법</h2>
-    <p>프로그램은 아래 GitHub 페이지에서 받을 수 있습니다.</p>
-    <p><a href="https://github.com/yeohj0710/media-summary-note-generator" target="_blank" rel="noreferrer">영상·음성 요약 노트 생성기 다운로드 페이지 열기</a></p>
+    <h2>1. 가장 빠른 사용 순서</h2>
     <ol>
-      <li>위 링크를 엽니다.</li>
-      <li>오른쪽 위의 초록색 <span class="path">Code</span> 버튼을 누릅니다.</li>
-      <li>아래쪽의 <span class="path">Download ZIP</span>을 누릅니다.</li>
-      <li>내려받은 ZIP 파일의 압축을 풉니다.</li>
-      <li>폴더 안의 <span class="path">영상·음성 요약 노트 생성기.exe</span>를 실행합니다.</li>
+      <li><span class="path">영상·음성 요약 노트 생성기.exe</span>를 실행합니다.</li>
+      <li><span class="path">링크로 가져오기</span> 또는 <span class="path">내 컴퓨터 파일</span> 중 하나를 선택합니다.</li>
+      <li>유튜브/릴스 링크를 붙여넣거나, 영상/오디오 파일을 선택합니다.</li>
+      <li>OpenAI API 키를 입력합니다.</li>
+      <li>저장 폴더는 기본값 그대로 두면 됩니다.</li>
+      <li>필요하면 <span class="path">요약 설정</span>에서 요약 길이를 조정합니다.</li>
+      <li><span class="path">노트 만들기</span>를 누릅니다.</li>
+      <li>완료되면 <span class="path">결과 폴더 열기</span>를 눌러 결과 파일을 확인합니다.</li>
     </ol>
-    <p>아래 이미지처럼 <span class="path">Code</span> 버튼을 누른 뒤 <span class="path">Download ZIP</span>을 선택하면 됩니다.</p>
-    <img class="guide-image" src="프로그램 구성 파일/github-download-zip.png" alt="GitHub에서 Download ZIP을 누르는 위치">
 
-    <h2>1. 결과물</h2>
-    <p>작업이 끝나면 <span class="path">생성된 노트</span> 폴더 안에 파일 3개가 바로 생깁니다. 영상별 하위 폴더는 만들지 않습니다.</p>
+    <h2>2. 영상 또는 오디오 넣기</h2>
+    <h3>링크로 가져오기</h3>
+    <p>유튜브나 릴스 링크를 붙여넣으면 프로그램이 영상을 먼저 저장한 뒤 전체 스크립트와 요약을 만듭니다.</p>
+    <div class="notice">로그인이 필요한 릴스나 유튜브 영상은 브라우저 쿠키 사용 옵션이 필요할 수 있습니다.</div>
+
+    <h3>내 컴퓨터 파일</h3>
+    <p>이미 가지고 있는 영상이나 녹음 파일을 직접 선택할 수 있습니다. 선택한 파일은 결과 폴더에 복사됩니다.</p>
+    <p><span class="path">mp4</span>, <span class="path">mov</span>, <span class="path">m4v</span>, <span class="path">mp3</span>, <span class="path">wav</span>, <span class="path">m4a</span> 같은 파일을 사용할 수 있습니다.</p>
+
+    <h2>3. OpenAI API 키</h2>
+    <p>전사와 요약을 만들기 위해 본인 OpenAI API 키가 필요합니다.</p>
+    <p>키가 없다면 프로그램 안의 <span class="path">API 키 받는 법</span> 버튼을 누르면 자세한 안내가 열립니다.</p>
+    <p>기본 설정 기준 10분 영상은 보통 수십 원 정도입니다. 영상 길이, 말의 양, 문장 정리 옵션에 따라 달라질 수 있습니다.</p>
+    <p>작업이 끝나면 진행 상황 로그에 한화 기준 예상 비용이 표시됩니다.</p>
+
+    <h2>4. 요약 설정</h2>
+    <p>처음에는 <span class="path">자동으로 요약 길이 결정</span>을 켜 둔 상태로 사용하는 것을 권장합니다.</p>
+    <p>요약이 너무 짧거나 길다고 느껴지면 자동 체크를 끄고 원하는 문장 수를 직접 입력할 수 있습니다.</p>
+    <p><span class="path">전사문 맞춤법/띄어쓰기 정리 사용</span>을 끄면 비용과 시간을 조금 아낄 수 있지만, 전사문이 덜 정돈될 수 있습니다.</p>
+
+    <h2>5. 결과 파일</h2>
+    <p>작업이 끝나면 <span class="path">생성된 노트</span> 폴더 안에 같은 이름의 파일 3개가 생깁니다.</p>
     <pre>생성된 노트/
   2605091859 영상제목.mp4
   2605091859 영상제목.txt
-  2605091859 영상제목_요약.txt
-  2605091901 회의녹음.mp3
-  2605091901 회의녹음.txt
-  2605091901 회의녹음_요약.txt
-  2605091907 다른영상.mp4
-  2605091907 다른영상.txt
-  2605091907 다른영상_요약.txt</pre>
-    <p>파일명은 <span class="path">YYMMDDHHMM 영상제목</span> 형식입니다.</p>
-
-    <h2>2. 가장 빠른 사용 순서</h2>
-    <ol>
-      <li><span class="path">영상·음성 요약 노트 생성기.exe</span>를 실행합니다.</li>
-      <li>유튜브/릴스 링크를 넣거나, 내 컴퓨터의 영상/오디오 파일을 선택합니다.</li>
-      <li>OpenAI API 키를 입력합니다.</li>
-      <li>저장 폴더가 <span class="path">생성된 노트</span>인지 확인합니다.</li>
-      <li>필요하면 <strong>요약 설정</strong>에서 자동 요약 길이를 끄고 원하는 문장 수를 입력합니다.</li>
-      <li><strong>노트 만들기</strong>를 누릅니다.</li>
-      <li>완료되면 <strong>결과 폴더 열기</strong>를 눌러 영상, 전체 스크립트, 요약 파일을 확인합니다.</li>
-      <li>진행 상황 로그에서 이번 작업의 예상 API 비용을 확인합니다.</li>
-    </ol>
-
-    <h2>3. TXT 파일 형식</h2>
-    <p>일반 TXT에는 내부 처리용 시간 라벨이나 <span class="path">구간:</span> 같은 문구를 넣지 않습니다. 전체 전사문만 들어갑니다.</p>
-    <p>문장은 읽기 편하도록 널널하게 줄바꿈됩니다.</p>
-    <pre>첫 번째 문장입니다.
-
-두 번째 문장입니다.
-
-세 번째 문장입니다.</pre>
-    <p><span class="path">_요약.txt</span> 파일은 전체 스크립트를 마지막에 한 번 더 읽고 만든 상세 요약본입니다. 수치, 날짜, 금액, 조건, 인물/회사/제품명, 중요한 예외와 결론은 최대한 살리고 반복 표현만 줄이는 방식으로 생성합니다.</p>
-    <p>요약은 기본적으로 전체 스크립트 문장 수의 약 1/5을 목표로 만들며, 프로그램의 <span class="path">요약 설정</span>에서 직접 문장 수를 지정할 수도 있습니다.</p>
-
-    <h2>4. 링크 영상</h2>
-    <p>유튜브나 릴스 링크를 넣으면 영상이 먼저 다운로드되고, 같은 이름의 전체 스크립트 TXT와 요약 TXT가 만들어집니다. 모두 <span class="path">생성된 노트</span> 폴더에 저장됩니다.</p>
-    <div class="notice">로그인이 필요한 릴스나 유튜브 영상은 브라우저 쿠키 사용 옵션을 켜야 할 수 있습니다.</div>
-
-    <h2>5. 내 컴퓨터 영상/오디오</h2>
-    <p>내 컴퓨터 파일을 선택하면 원본 영상이나 오디오가 <span class="path">생성된 노트</span> 폴더에 복사되고, 같은 이름의 전체 스크립트 TXT와 요약 TXT가 만들어집니다.</p>
-    <p><span class="path">mp3</span>, <span class="path">wav</span>, <span class="path">m4a</span>, <span class="path">amr</span>, <span class="path">caf</span>, <span class="path">aiff</span> 같은 오디오 파일만 넣어도 사용할 수 있습니다.</p>
-    <p>휴대폰 녹화 파일에서 자주 나오는 <span class="path">mov</span>, <span class="path">3gp</span>, <span class="path">m4v</span> 파일도 선택할 수 있습니다.</p>
+  2605091859 영상제목_요약.txt</pre>
+    <p><span class="path">.txt</span> 파일은 전체 스크립트입니다. 시간 라벨이나 내부 처리 문구 없이 본문만 들어갑니다.</p>
+    <p><span class="path">_요약.txt</span> 파일은 전체 스크립트를 바탕으로 만든 상세 요약입니다.</p>
 
     <h2>6. 폴더 설명</h2>
     <table>
@@ -163,22 +138,12 @@
       </thead>
       <tbody>
         <tr><td><span class="path">영상·음성 요약 노트 생성기.exe</span></td><td>프로그램 실행 파일입니다.</td></tr>
-        <tr><td><span class="path">사용설명서.html</span></td><td>이 설명서 파일입니다.</td></tr>
+        <tr><td><span class="path">사용설명서.html</span></td><td>지금 보고 있는 설명서입니다.</td></tr>
         <tr><td><span class="path">생성된 노트</span></td><td>완성된 영상/오디오 파일, 전체 스크립트 TXT, 요약 TXT가 저장되는 폴더입니다.</td></tr>
-        <tr><td><span class="path">프로그램 구성 파일</span></td><td>실행에 필요한 구성 파일입니다. 삭제하거나 이름을 바꾸면 실행이 안 될 수 있습니다.</td></tr>
+        <tr><td><span class="path">프로그램 구성 파일</span></td><td>실행에 필요한 파일입니다. 삭제하거나 이름을 바꾸면 실행이 안 될 수 있습니다.</td></tr>
       </tbody>
     </table>
 
-    <h2>7. 비용과 보안</h2>
-    <ul>
-      <li>OpenAI API 사용량에 따라 비용이 발생할 수 있습니다.</li>
-      <li>기본 설정 기준 10분 영상은 보통 수십 원 정도입니다. 영상 길이, 말의 양, 문장 정리 옵션에 따라 달라질 수 있습니다.</li>
-      <li>작업 완료 후 진행 상황 로그에 한화 기준 예상 API 비용이 표시됩니다. 실제 청구액은 OpenAI 가격 변경, 환율, 계정 조건에 따라 조금 달라질 수 있습니다.</li>
-      <li>API 키가 없다면 프로그램의 <span class="path">API 키 받는 법</span> 버튼으로 HTML 가이드를 열 수 있습니다.</li>
-      <li>링크와 파일 선택이 헷갈리면 프로그램의 <span class="path">가져오기 도움말</span> 버튼을 누르세요.</li>
-      <li>영상이 길수록 전사 시간과 비용이 늘어납니다.</li>
-      <li>공용 PC에서는 API 키 저장 옵션을 권장하지 않습니다.</li>
-    </ul>
   </main>
 </body>
 </html>
