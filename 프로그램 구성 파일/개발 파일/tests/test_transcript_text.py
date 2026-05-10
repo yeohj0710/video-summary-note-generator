@@ -72,6 +72,35 @@ def test_summary_target_can_be_set_manually():
     assert pipeline._summary_target_sentence_count("Sentence one. Sentence two.") == 17
 
 
+def test_clean_prompt_prefers_korean_for_common_terms(tmp_path: Path):
+    pipeline = VideoNotePipeline.__new__(VideoNotePipeline)
+    pipeline.progress = lambda *_args, **_kwargs: None
+    captured: dict[str, str] = {}
+
+    def fake_text_response(system: str, user: str) -> str:
+        captured["system"] = system
+        captured["user"] = user
+        return "도베르만이라고 하면 되게 사납고 맹견에 들어갈 것 같아요."
+
+    pipeline._text_response = fake_text_response
+    chunks = [
+        TranscriptChunk(
+            index=0,
+            start=0,
+            end=10,
+            path=tmp_path / "audio.mp3",
+            raw_text="Doberman이라고 하면 되게 사납고 맹견에 들어갈 것 같아요.",
+        )
+    ]
+
+    pipeline._clean_chunks(chunks)
+
+    assert "Doberman" in captured["system"]
+    assert "도베르만" in captured["system"]
+    assert "일반 명사" in captured["system"]
+    assert chunks[0].clean_text.startswith("도베르만")
+
+
 class DummyUsage:
     input_tokens = 10_000
     output_tokens = 2_000
