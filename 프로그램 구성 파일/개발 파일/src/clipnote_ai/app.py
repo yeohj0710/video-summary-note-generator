@@ -270,6 +270,7 @@ class ClipNoteApp(ctk.CTk):
         self.output_dir_var = tk.StringVar(value=self.settings.output_dir or str(default_output_dir()))
         self.auto_summary_var = tk.BooleanVar(value=self.settings.auto_summary_sentences)
         self.summary_sentence_var = tk.StringVar(value=str(self.settings.summary_sentence_count))
+        self.polish_transcript_var = tk.BooleanVar(value=getattr(self.settings, "polish_transcript", False))
         self.auto_scene_var = tk.BooleanVar(value=self.settings.auto_scene_count)
         self.fixed_scene_var = tk.StringVar(value=str(self.settings.fixed_scene_count))
         self.min_scene_var = tk.StringVar(value=str(self.settings.min_scene_count))
@@ -600,6 +601,7 @@ class ClipNoteApp(ctk.CTk):
             self.transcription_model_combo,
             self.text_model_combo,
             self.custom_text_model_entry,
+            self.polish_transcript_checkbox,
             self.auto_summary_checkbox,
             self.summary_sentence_entry,
             self.output_dir_entry,
@@ -727,6 +729,24 @@ class ClipNoteApp(ctk.CTk):
             wraplength=250,
         )
         self.text_model_helper_label.grid(row=3, column=1, sticky="ew", pady=(6, 0), padx=(12, 0))
+        self.polish_transcript_checkbox = ctk.CTkCheckBox(
+            card,
+            text="전사문 맞춤법/띄어쓰기 정리 사용",
+            variable=self.polish_transcript_var,
+            font=self.font_body,
+            checkbox_width=24,
+            checkbox_height=24,
+        )
+        self.polish_transcript_checkbox.grid(row=7, column=0, padx=22, pady=(0, 8), sticky="w")
+        ctk.CTkLabel(
+            card,
+            text="끄면 비용을 아끼기 위해 전사 원문을 그대로 저장합니다. 켜면 문장 정리/요약 모델로 전사문을 한 번 더 다듬습니다.",
+            font=self.font_label,
+            text_color="#64748b",
+            justify="left",
+            anchor="w",
+            wraplength=560,
+        ).grid(row=8, column=0, padx=22, pady=(0, 22), sticky="ew")
         self._refresh_text_model_mode()
         self._refresh_api_key_lock()
         return card
@@ -1210,6 +1230,7 @@ class ClipNoteApp(ctk.CTk):
             save_api_key=bool(self.save_api_key_var.get()),
             transcription_model=transcription_model,
             text_model=text_model,
+            polish_transcript=bool(self.polish_transcript_var.get()),
             output_dir=output_dir,
             output_dir_custom=not is_current_default_output_dir(output_dir),
             auto_summary_sentences=bool(self.auto_summary_var.get()),

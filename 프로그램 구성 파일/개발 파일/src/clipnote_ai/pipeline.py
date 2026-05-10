@@ -743,6 +743,17 @@ class VideoNotePipeline:
         raise RuntimeError(f"OpenAI 전사 호출에 실패했습니다: {last_error}") from last_error
 
     def _clean_chunks(self, chunks: list[TranscriptChunk]) -> None:
+        settings = getattr(self, "settings", None)
+        if not bool(getattr(settings, "polish_transcript", True)):
+            self.progress(
+                "전사문 정리 건너뜀",
+                0.68,
+                "비용 절약을 위해 맞춤법/띄어쓰기 정리를 건너뛰고 전사 원문을 보존합니다.",
+            )
+            for chunk in chunks:
+                chunk.clean_text = chunk.raw_text
+            return
+
         total = len(chunks)
         for chunk in chunks:
             base_percent = 0.50 + (chunk.index / max(1, total)) * 0.18

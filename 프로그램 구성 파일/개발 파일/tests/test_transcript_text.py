@@ -149,6 +149,28 @@ def test_clean_chunks_accepts_complete_clean_text(tmp_path: Path):
     assert chunks[0].clean_text == cleaned
 
 
+def test_clean_chunks_can_skip_polish_to_save_cost(tmp_path: Path):
+    pipeline = VideoNotePipeline.__new__(VideoNotePipeline)
+    pipeline.settings = AppSettings(polish_transcript=False)
+    pipeline.progress = lambda *_args, **_kwargs: None
+    calls: list[str] = []
+    pipeline._text_response = lambda **_kwargs: calls.append("called") or "should not be used"
+    chunks = [
+        TranscriptChunk(
+            index=0,
+            start=0,
+            end=90,
+            path=tmp_path / "audio.mp3",
+            raw_text="raw transcript text",
+        )
+    ]
+
+    pipeline._clean_chunks(chunks)
+
+    assert calls == []
+    assert chunks[0].clean_text == "raw transcript text"
+
+
 class DummyUsage:
     input_tokens = 10_000
     output_tokens = 2_000
