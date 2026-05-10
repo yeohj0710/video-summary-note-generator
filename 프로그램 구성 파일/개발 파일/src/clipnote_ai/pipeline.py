@@ -299,6 +299,70 @@ class VideoNotePipeline:
             return "유튜브 영상"
         return "링크로 가져온 온라인 영상"
 
+    def _best_source_title(self, info: dict[str, object]) -> str:
+        raw_title = self._metadata_text(info, "title")
+        candidates: list[str] = []
+        if raw_title and not self._is_generic_online_title(raw_title):
+            candidates.append(raw_title)
+
+        for key in ("description", "caption", "alt_title", "fulltitle"):
+            candidate = self._caption_title(self._metadata_text(info, key))
+            if candidate and not self._is_generic_online_title(candidate):
+                candidates.append(candidate)
+
+        if raw_title:
+            candidates.append(raw_title)
+
+        for candidate in candidates:
+            cleaned = self._caption_title(candidate)
+            if cleaned:
+                return cleaned
+        return "downloaded_video"
+
+    @staticmethod
+    def _metadata_text(info: dict[str, object], key: str) -> str:
+        value = info.get(key)
+        if isinstance(value, str):
+            return value.strip()
+        return ""
+
+    @staticmethod
+    def _is_generic_online_title(title: str) -> bool:
+        normalized = re.sub(r"\s+", " ", title.strip()).lower()
+        return bool(
+            re.fullmatch(r"(video|reel|post)( by [\w_.-]+)?", normalized)
+            or re.fullmatch(r"instagram (video|reel|post)", normalized)
+            or normalized in {"downloaded_video", "video", "reel", "post"}
+        )
+
+    @staticmethod
+    def _caption_title(text: str, max_length: int = 80) -> str:
+        if not text.strip():
+            return ""
+
+        text = re.sub(r"https?://\S+", "", text)
+        text = re.sub(r"#\S+", "", text)
+        text = re.sub(r"^\s*[\w.]+\s+on\s+Instagram:\s*", "", text, flags=re.IGNORECASE)
+        text = re.sub(
+            r"^\s*[\d,]+\s+likes?,\s*[\d,]+\s+comments?\s*-\s*[^:]{1,80}:\s*",
+            "",
+            text,
+            flags=re.IGNORECASE,
+        )
+
+        lines = [re.sub(r"\s+", " ", line).strip(" -|:") for line in text.splitlines()]
+        title = next((line for line in lines if len(line) >= 2), "")
+        if not title:
+            return ""
+
+        if len(title) <= max_length:
+            return title
+
+        boundary = max(title.rfind(mark, 0, max_length) for mark in (".", "?", "!", "。", "요", "다"))
+        if boundary >= 20:
+            return title[: boundary + 1].strip()
+        return title[:max_length].rstrip() + "..."
+
     def _download_video(self, url: str, started: str, downloads_dir: Path) -> tuple[Path, str]:
         downloads_dir.mkdir(parents=True, exist_ok=True)
         self.progress(
@@ -326,7 +390,7 @@ class VideoNotePipeline:
             info = ydl.extract_info(url, download=True)
             if info is None:
                 raise RuntimeError("영상 정보를 가져오지 못했습니다.")
-            title = str(info.get("title") or "downloaded_video")
+            title = self._best_source_title(info)
             downloaded = Path(ydl.prepare_filename(info))
             merged = downloaded.with_suffix(".mp4")
             if merged.exists():
@@ -402,14 +466,16 @@ class VideoNotePipeline:
 
     def _transcribe_file(self, path: Path, previous_tail: str) -> str:
         prompt = (
-            "한국어 영상 음성입니다. 자연스러운 한국어 띄어쓰기와 문장부호를 최대한 살려 주세요."
+            "한국어 중심 영상일 수 있습니다. 자연스러운 띄어쓰기와 문장부호를 살려 주세요. "
+            "영어 단어, 브랜드명, 사이트명, 앱 이름, 버튼명, 기능명은 번역하거나 한글로 음차하지 말고 "
+            "들리는 영어 표기를 최대한 알파벳으로 남겨 주세요."
         )
         if previous_tail:
             prompt += f"\n직전 내용 일부: {previous_tail}"
 
         attempts = [
-            {"language": "ko", "prompt": prompt},
             {"prompt": prompt},
+            {"language": "ko", "prompt": prompt},
             {},
         ]
         last_error: Exception | None = None
@@ -445,6 +511,9 @@ class VideoNotePipeline:
                 system=(
                     "너는 한국어 영상 전사문 교정자다. 의미를 바꾸거나 내용을 추가하지 말고, "
                     "맞춤법, 띄어쓰기, 문장부호, 어색한 ASR 오류만 자연스럽게 고친다. "
+                    "영어 단어, 브랜드명, 사이트명, 앱 이름, 버튼명, 기능명은 한국어로 번역하거나 한글 음차하지 말고 "
+                    "알파벳 표기를 보존한다. ASR이 영어 고유명사를 한글로 적었고 문맥상 영어 표기가 명확하면 영어로 복원한다. "
+                    "확실하지 않은 고유명사는 추측해서 새 이름을 만들지 않는다. "
                     "결과 텍스트만 반환한다."
                 ),
                 user=(
