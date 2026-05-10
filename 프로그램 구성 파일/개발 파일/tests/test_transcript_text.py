@@ -101,6 +101,54 @@ def test_clean_prompt_prefers_korean_for_common_terms(tmp_path: Path):
     assert chunks[0].clean_text.startswith("도베르만")
 
 
+def test_clean_chunks_keeps_raw_text_when_model_truncates(tmp_path: Path):
+    pipeline = VideoNotePipeline.__new__(VideoNotePipeline)
+    pipeline.progress = lambda *_args, **_kwargs: None
+    raw = " ".join(f"문장 {index}입니다." for index in range(1, 41))
+    calls: list[str] = []
+
+    def fake_text_response(system: str, user: str) -> str:
+        calls.append(user)
+        return "문장 1입니다. 문장 2입니다."
+
+    pipeline._text_response = fake_text_response
+    chunks = [
+        TranscriptChunk(
+            index=0,
+            start=0,
+            end=90,
+            path=tmp_path / "audio.mp3",
+            raw_text=raw,
+        )
+    ]
+
+    pipeline._clean_chunks(chunks)
+
+    assert len(calls) == 2
+    assert chunks[0].clean_text == raw
+
+
+def test_clean_chunks_accepts_complete_clean_text(tmp_path: Path):
+    pipeline = VideoNotePipeline.__new__(VideoNotePipeline)
+    pipeline.progress = lambda *_args, **_kwargs: None
+    raw = " ".join(f"문장 {index}입니다." for index in range(1, 21))
+    cleaned = " ".join(f"문장 {index}입니다!" for index in range(1, 21))
+    pipeline._text_response = lambda **_kwargs: cleaned
+    chunks = [
+        TranscriptChunk(
+            index=0,
+            start=0,
+            end=90,
+            path=tmp_path / "audio.mp3",
+            raw_text=raw,
+        )
+    ]
+
+    pipeline._clean_chunks(chunks)
+
+    assert chunks[0].clean_text == cleaned
+
+
 class DummyUsage:
     input_tokens = 10_000
     output_tokens = 2_000

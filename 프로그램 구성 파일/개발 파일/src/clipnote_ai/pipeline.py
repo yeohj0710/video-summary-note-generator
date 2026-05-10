@@ -53,6 +53,7 @@ AUDIO_EXTENSIONS = {
     ".wav",
     ".wma",
 }
+TRANSCRIPTION_CHUNK_SECONDS = 90
 VIDEO_EXTENSIONS = {
     ".3g2",
     ".3gp",
@@ -644,7 +645,7 @@ class VideoNotePipeline:
         self.progress("음성 추출 중", 0.18, "오디오를 전사용 작은 조각으로 나누고 있습니다.")
         chunk_dir = support_dir / "audio_chunks"
         chunk_dir.mkdir(parents=True, exist_ok=True)
-        chunk_seconds = 480
+        chunk_seconds = TRANSCRIPTION_CHUNK_SECONDS
         output_pattern = chunk_dir / "chunk_%03d.mp3"
         completed = run_process(
             [
@@ -678,10 +679,18 @@ class VideoNotePipeline:
             raise RuntimeError("추출된 오디오 조각이 없습니다. 영상/오디오 파일에 음성이 있는지 확인해 주세요.")
 
         chunks: list[TranscriptChunk] = []
+        elapsed = 0.0
         for index, path in enumerate(chunk_paths):
-            start = index * chunk_seconds
-            end = min(duration, start + chunk_seconds)
+            start = elapsed
+            try:
+                chunk_duration = get_media_duration(path, self.ffmpeg)
+            except Exception:
+                chunk_duration = min(chunk_seconds, max(0.0, duration - start))
+            end = min(duration, start + max(0.0, chunk_duration))
+            if end <= start:
+                end = min(duration, start + chunk_seconds)
             chunks.append(TranscriptChunk(index=index, start=start, end=end, path=path))
+            elapsed = end
         return chunks
 
     def _transcribe_chunks(self, chunks: list[TranscriptChunk]) -> None:
@@ -745,23 +754,58 @@ class VideoNotePipeline:
             if not chunk.raw_text.strip():
                 chunk.clean_text = ""
                 continue
-            chunk.clean_text = self._text_response(
-                system=(
-                    "너는 한국어 영상 전사문 교정자다. 의미를 바꾸거나 내용을 추가하지 말고, "
-                    "맞춤법, 띄어쓰기, 문장부호, 어색한 ASR 오류만 자연스럽게 고친다. "
-                    "브랜드명, 사이트명, 앱 이름, 버튼명, 기능명, 코드, URL, 전문 약어처럼 실제 표기가 중요한 말만 "
-                    "알파벳 표기를 보존한다. 일반 명사, 품종명, 직업명, 감정 표현처럼 한국어 문장 안에서 "
-                    "보통 한글로 쓰는 말은 영어로 바꾸지 말고 자연스러운 한글 표기를 우선한다. "
-                    "예: Doberman은 특별히 영문 표기를 말하는 맥락이 아니면 도베르만으로 쓴다. "
-                    "ASR이 브랜드명이나 제품명을 한글로 적었고 문맥상 영어 표기가 명확한 경우에만 영어로 복원한다. "
-                    "확실하지 않은 고유명사나 일반 단어는 추측해서 새 이름을 만들지 않는다. "
-                    "결과 텍스트만 반환한다."
-                ),
-                user=(
-                    f"구간: {format_timecode(chunk.start)}-{format_timecode(chunk.end)}\n\n"
-                    f"{chunk.raw_text}"
-                ),
-            ).strip()
+            chunk.clean_text = self._clean_chunk_text(chunk).strip()
+
+    def _clean_chunk_text(self, chunk: TranscriptChunk) -> str:
+        system = (
+            "너는 한국어 영상 전사문 교정자다. 의미를 바꾸거나 내용을 추가하지 말고, "
+            "맞춤법, 띄어쓰기, 문장부호, 어색한 ASR 오류만 자연스럽게 고친다. "
+            "절대 요약하지 말고, 입력된 모든 문장을 빠짐없이 같은 순서로 보존한다. "
+            "브랜드명, 사이트명, 앱 이름, 버튼명, 기능명, 코드, URL, 전문 약어처럼 실제 표기가 중요한 말만 "
+            "알파벳 표기를 보존한다. 일반 명사, 품종명, 직업명, 감정 표현처럼 한국어 문장 안에서 "
+            "보통 한글로 쓰는 말은 영어로 바꾸지 말고 자연스러운 한글 표기를 우선한다. "
+            "예: Doberman은 특별히 영문 표기를 말하는 맥락이 아니면 도베르만으로 쓴다. "
+            "ASR이 브랜드명이나 제품명을 한글로 적었고 문맥상 영어 표기가 명확한 경우에만 영어로 복원한다. "
+            "확실하지 않은 고유명사나 일반 단어는 추측해서 새 이름을 만들지 않는다. "
+            "결과 텍스트만 반환한다."
+        )
+        user = f"구간: {format_timecode(chunk.start)}-{format_timecode(chunk.end)}\n\n{chunk.raw_text}"
+        cleaned = self._text_response(system=system, user=user).strip()
+        if not self._is_suspiciously_short_clean_text(chunk.raw_text, cleaned):
+            return cleaned
+
+        retry = self._text_response(
+            system=(
+                system
+                + " 이전 응답이 원문보다 너무 짧으면 실패다. 이번에는 한 문장도 생략하지 말고 전체 전사문을 모두 반환한다."
+            ),
+            user=user,
+        ).strip()
+        if not self._is_suspiciously_short_clean_text(chunk.raw_text, retry):
+            return retry
+
+        self.progress(
+            "문장 다듬기 보정",
+            0.68,
+            f"{chunk.index + 1}번 조각의 정리 결과가 너무 짧아 원문 전사문을 보존합니다.",
+        )
+        return chunk.raw_text
+
+    def _is_suspiciously_short_clean_text(self, raw_text: str, clean_text: str) -> bool:
+        raw = self._strip_transcript_labels(raw_text)
+        clean = self._strip_transcript_labels(clean_text)
+        raw_compact = re.sub(r"\s+", "", raw)
+        clean_compact = re.sub(r"\s+", "", clean)
+        if len(raw_compact) < 260:
+            return False
+        if not clean_compact:
+            return True
+        if len(clean_compact) < len(raw_compact) * 0.60:
+            return True
+
+        raw_sentence_count = len(self._split_sentences(raw))
+        clean_sentence_count = len(self._split_sentences(clean))
+        return raw_sentence_count >= 6 and clean_sentence_count < raw_sentence_count * 0.50
 
     def _text_response(self, system: str, user: str) -> str:
         try:
