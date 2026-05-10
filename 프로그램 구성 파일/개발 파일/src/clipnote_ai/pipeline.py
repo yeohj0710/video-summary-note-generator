@@ -367,26 +367,39 @@ class VideoNotePipeline:
             return title[: boundary + 1].strip()
         return title[:max_length].rstrip() + "..."
 
-    def _friendly_download_error(self, url: str, error: BaseException) -> UserFacingError:
+    @staticmethod
+    def _is_instagram_url(url: str) -> bool:
+        return "instagram.com" in urlparse(url.strip()).netloc.lower()
+
+    @staticmethod
+    def _download_error_needs_cookies(error: BaseException) -> bool:
         message = str(error)
         lowered = message.lower()
-        host = urlparse(url.strip()).netloc.lower()
-        needs_cookies = any(
+        return any(
             phrase in lowered
             for phrase in (
                 "login required",
                 "cookies",
+                "cookie",
                 "rate-limit",
                 "requested content is not available",
                 "not available",
+                "for authentication",
             )
         )
-        if "instagram.com" in host and needs_cookies:
+
+    def _friendly_download_error(
+        self,
+        url: str,
+        error: BaseException,
+        retried_with_cookies: bool = False,
+    ) -> UserFacingError:
+        if self._is_instagram_url(url):
             browser = self.settings.cookie_browser or "chrome"
-            if self.settings.use_browser_cookies:
+            if self.settings.use_browser_cookies or retried_with_cookies:
                 return UserFacingError(
                     "Instagram에서 이 릴스를 바로 다운로드하지 못했습니다.\n\n"
-                    f"현재 '{browser}' 브라우저 쿠키를 사용하도록 설정되어 있지만, 로그인 정보가 없거나 Instagram이 요청을 막았습니다.\n\n"
+                    f"'{browser}' 브라우저 쿠키로 다시 시도했지만, 로그인 정보가 없거나 Instagram이 요청을 막았습니다.\n\n"
                     "확인해 주세요.\n"
                     "1. 선택한 브라우저에서 Instagram에 로그인되어 있는지 확인\n"
                     "2. 비공개/삭제된 릴스가 아닌지 확인\n"
@@ -410,6 +423,30 @@ class VideoNotePipeline:
             "- 짧은 시간에 요청이 많아 일시적으로 막힘\n\n"
             "브라우저에서 영상이 정상 재생되는지 확인한 뒤 다시 시도해 주세요."
         )
+
+    def _download_with_ytdlp(
+        self,
+        yt_dlp_module: object,
+        url: str,
+        ydl_opts: dict[str, object],
+        downloads_dir: Path,
+        started: str,
+    ) -> tuple[Path, str]:
+        with yt_dlp_module.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=True)
+            if info is None:
+                raise RuntimeError("영상 정보를 가져오지 못했습니다.")
+            title = self._best_source_title(info)
+            downloaded = Path(ydl.prepare_filename(info))
+            merged = downloaded.with_suffix(".mp4")
+            if merged.exists():
+                downloaded = merged
+            if not downloaded.exists():
+                candidates = sorted(downloads_dir.glob(f"{started}_*"), key=lambda path: path.stat().st_mtime, reverse=True)
+                if not candidates:
+                    raise RuntimeError("다운로드된 영상 파일을 찾지 못했습니다.")
+                downloaded = candidates[0]
+        return downloaded.resolve(), title
 
     def _download_video(self, url: str, started: str, downloads_dir: Path) -> tuple[Path, str]:
         downloads_dir.mkdir(parents=True, exist_ok=True)
@@ -435,24 +472,30 @@ class VideoNotePipeline:
             ydl_opts["cookiesfrombrowser"] = (self.settings.cookie_browser,)
 
         try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(url, download=True)
-                if info is None:
-                    raise RuntimeError("영상 정보를 가져오지 못했습니다.")
-                title = self._best_source_title(info)
-                downloaded = Path(ydl.prepare_filename(info))
-                merged = downloaded.with_suffix(".mp4")
-                if merged.exists():
-                    downloaded = merged
-                if not downloaded.exists():
-                    candidates = sorted(downloads_dir.glob(f"{started}_*"), key=lambda path: path.stat().st_mtime, reverse=True)
-                    if not candidates:
-                        raise RuntimeError("다운로드된 영상 파일을 찾지 못했습니다.")
-                    downloaded = candidates[0]
+            downloaded, title = self._download_with_ytdlp(yt_dlp, url, ydl_opts, downloads_dir, started)
         except UserFacingError:
             raise
         except Exception as exc:
-            raise self._friendly_download_error(url, exc) from exc
+            should_retry_with_cookies = (
+                self._is_instagram_url(url)
+                and not self.settings.use_browser_cookies
+                and self._download_error_needs_cookies(exc)
+            )
+            if not should_retry_with_cookies:
+                raise self._friendly_download_error(url, exc) from exc
+
+            browser = self.settings.cookie_browser or "chrome"
+            self.progress(
+                "브라우저 쿠키로 재시도 중",
+                0.07,
+                f"Instagram 로그인이 필요한 영상이라 {browser} 브라우저 쿠키로 다시 시도합니다.",
+            )
+            retry_opts = dict(ydl_opts)
+            retry_opts["cookiesfrombrowser"] = (browser,)
+            try:
+                downloaded, title = self._download_with_ytdlp(yt_dlp, url, retry_opts, downloads_dir, started)
+            except Exception as retry_exc:
+                raise self._friendly_download_error(url, retry_exc, retried_with_cookies=True) from retry_exc
         self.progress("영상 다운로드 완료", 0.09, f"저장된 동영상: {downloaded}")
         return downloaded.resolve(), title
 

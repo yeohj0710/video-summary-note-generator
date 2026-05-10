@@ -54,3 +54,30 @@ def test_instagram_download_error_mentions_selected_browser_when_cookies_enabled
 
     assert "edge" in str(error)
     assert "로그인" in str(error)
+
+
+def test_instagram_download_retries_with_browser_cookies(tmp_path):
+    pipeline = VideoNotePipeline.__new__(VideoNotePipeline)
+    pipeline.settings = AppSettings(use_browser_cookies=False, cookie_browser="chrome")
+    pipeline.ffmpeg = "ffmpeg"
+    events = []
+    pipeline.progress = lambda *args: events.append(args)
+    video = tmp_path / "reel.mp4"
+    video.write_bytes(b"video")
+    calls = []
+
+    def fake_download(_yt_dlp_module, _url, ydl_opts, _downloads_dir, _started):
+        calls.append(dict(ydl_opts))
+        if len(calls) == 1:
+            raise RuntimeError("login required. Use --cookies-from-browser")
+        return video, "릴스 제목"
+
+    pipeline._download_with_ytdlp = fake_download
+
+    downloaded, title = pipeline._download_video("https://www.instagram.com/reel/example/", "2605101200", tmp_path)
+
+    assert downloaded == video.resolve()
+    assert title == "릴스 제목"
+    assert "cookiesfrombrowser" not in calls[0]
+    assert calls[1]["cookiesfrombrowser"] == ("chrome",)
+    assert any("쿠키" in str(event) for event in events)
