@@ -789,19 +789,19 @@ class ClipNoteApp(ctk.CTk):
         )
         self.auto_summary_checkbox.grid(row=2, column=0, padx=22, pady=(0, 12), sticky="w")
 
-        summary_box = ctk.CTkFrame(card, fg_color="#f6f8fb", corner_radius=8)
-        summary_box.grid(row=3, column=0, padx=22, pady=(0, 22), sticky="ew")
-        summary_box.grid_columnconfigure(0, weight=1)
+        self.summary_box = ctk.CTkFrame(card, fg_color="#f6f8fb", corner_radius=8)
+        self.summary_box.grid(row=3, column=0, padx=22, pady=(0, 22), sticky="ew")
+        self.summary_box.grid_columnconfigure(0, weight=1)
 
         self.summary_sentence_label = ctk.CTkLabel(
-            summary_box,
+            self.summary_box,
             text="직접 지정 문장 수",
             font=self.font_label,
             text_color="#334155",
         )
         self.summary_sentence_label.grid(row=0, column=0, padx=16, pady=(14, 7), sticky="w")
         self.summary_sentence_entry = ctk.CTkEntry(
-            summary_box,
+            self.summary_box,
             textvariable=self.summary_sentence_var,
             height=38,
             width=118,
@@ -810,8 +810,8 @@ class ClipNoteApp(ctk.CTk):
         )
         self.summary_sentence_entry.grid(row=1, column=0, padx=16, pady=(0, 14), sticky="w")
         ctk.CTkLabel(
-            summary_box,
-            text="자동 기준: 전체 스크립트 문장의 약 1/5\n직접 정하려면 자동 체크를 끄고 문장 수를 입력하세요.",
+            self.summary_box,
+            text="요약을 몇 문장으로 만들지 직접 정합니다.",
             font=self.font_label,
             text_color="#64748b",
             justify="left",
@@ -1033,22 +1033,24 @@ class ClipNoteApp(ctk.CTk):
             self._set_widget_cursor(self.api_key_entry, "")
 
     def _refresh_summary_mode(self) -> None:
-        if not hasattr(self, "summary_sentence_entry"):
-            return
-
-        if self.is_processing:
-            self.summary_sentence_entry.configure(state="disabled", fg_color="#edf2f7", border_color="#cbd5e1", text_color="#94a3b8")
-            self.summary_sentence_label.configure(text_color="#94a3b8")
+        if not hasattr(self, "summary_box"):
             return
 
         if self.auto_summary_var.get():
+            self.summary_box.grid_remove()
+            self._set_widget_cursor(self.summary_sentence_entry, "")
+            return
+
+        self.summary_box.grid(row=3, column=0, padx=22, pady=(0, 22), sticky="ew")
+        if self.is_processing:
             self.summary_sentence_entry.configure(state="disabled", fg_color="#edf2f7", border_color="#cbd5e1", text_color="#94a3b8")
             self.summary_sentence_label.configure(text_color="#94a3b8")
             self._set_widget_cursor(self.summary_sentence_entry, "no")
-        else:
-            self.summary_sentence_entry.configure(state="normal", fg_color="#ffffff", border_color="#94a3b8", text_color="#111827")
-            self.summary_sentence_label.configure(text_color="#475569")
-            self._set_widget_cursor(self.summary_sentence_entry, "")
+            return
+
+        self.summary_sentence_entry.configure(state="normal", fg_color="#ffffff", border_color="#94a3b8", text_color="#111827")
+        self.summary_sentence_label.configure(text_color="#475569")
+        self._set_widget_cursor(self.summary_sentence_entry, "")
 
     def _refresh_text_model_mode(self) -> None:
         if not hasattr(self, "custom_text_model_entry"):
