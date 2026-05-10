@@ -386,6 +386,19 @@ class ClipNoteApp(ctk.CTk):
         label.grid(row=0, column=0, padx=22, pady=(20, 12), sticky="w")
         return card
 
+    def _make_select_only_combo(self, combo: ctk.CTkComboBox, allowed_values: list[str]) -> None:
+        def restore_if_needed(_event: tk.Event | None = None) -> None:
+            current = combo.get().strip()
+            if current not in allowed_values:
+                combo.set(allowed_values[0])
+
+        try:
+            combo._entry.configure(state="readonly")
+            combo._entry.bind("<KeyRelease>", restore_if_needed)
+            combo._entry.bind("<FocusOut>", restore_if_needed)
+        except (tk.TclError, AttributeError):
+            pass
+
     def _helper_label(self, parent: ctk.CTkBaseClass, text: str, row: int, padx: int = 22) -> ctk.CTkLabel:
         label = ctk.CTkLabel(
             parent,
@@ -657,6 +670,7 @@ class ClipNoteApp(ctk.CTk):
             corner_radius=7,
         )
         self.transcription_model_combo.grid(row=1, column=0, sticky="ew", pady=(7, 0), padx=(0, 12))
+        self._make_select_only_combo(self.transcription_model_combo, TRANSCRIPTION_MODEL_CHOICES)
         ctk.CTkLabel(
             model_grid,
             text="영상 음성을 글자로 바꾸는 모델입니다.",
@@ -677,6 +691,7 @@ class ClipNoteApp(ctk.CTk):
             corner_radius=7,
         )
         self.text_model_combo.grid(row=1, column=1, sticky="ew", pady=(7, 0), padx=(12, 0))
+        self._make_select_only_combo(self.text_model_combo, TEXT_MODEL_CHOICES)
         self.custom_text_model_entry = ctk.CTkEntry(
             model_grid,
             textvariable=self.custom_text_model_var,
@@ -686,7 +701,7 @@ class ClipNoteApp(ctk.CTk):
             corner_radius=7,
         )
         self.custom_text_model_entry.grid(row=2, column=1, sticky="ew", pady=(6, 0), padx=(12, 0))
-        ctk.CTkLabel(
+        self.text_model_helper_label = ctk.CTkLabel(
             model_grid,
             text="맞춤법 정리와 요약을 맡는 모델입니다. 직접 입력은 모델 존재 확인 후 사용합니다.",
             font=self.font_label,
@@ -694,7 +709,8 @@ class ClipNoteApp(ctk.CTk):
             justify="left",
             anchor="w",
             wraplength=250,
-        ).grid(row=3, column=1, sticky="ew", pady=(6, 0), padx=(12, 0))
+        )
+        self.text_model_helper_label.grid(row=3, column=1, sticky="ew", pady=(6, 0), padx=(12, 0))
         self._refresh_text_model_mode()
         self._refresh_api_key_lock()
         return card
@@ -979,8 +995,10 @@ class ClipNoteApp(ctk.CTk):
         custom_selected = self.text_model_var.get() == CUSTOM_TEXT_MODEL_OPTION
         if custom_selected:
             self.custom_text_model_entry.grid()
+            self.text_model_helper_label.grid(row=3, column=1, sticky="ew", pady=(6, 0), padx=(12, 0))
         else:
             self.custom_text_model_entry.grid_remove()
+            self.text_model_helper_label.grid(row=2, column=1, sticky="ew", pady=(6, 0), padx=(12, 0))
 
         if self.is_processing or not custom_selected:
             self.custom_text_model_entry.configure(
