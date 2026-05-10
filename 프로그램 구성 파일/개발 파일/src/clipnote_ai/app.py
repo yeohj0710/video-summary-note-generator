@@ -13,7 +13,13 @@ import tkinter as tk
 import customtkinter as ctk
 from openai import OpenAI
 
-from clipnote_ai.pipeline import PipelineResult, UserFacingError, VideoNotePipeline
+from clipnote_ai.pipeline import (
+    AUDIO_EXTENSIONS,
+    PipelineResult,
+    UserFacingError,
+    VIDEO_EXTENSIONS,
+    VideoNotePipeline,
+)
 from clipnote_ai.settings import (
     DEFAULT_TEXT_MODEL,
     AppSettings,
@@ -31,6 +37,9 @@ PRODUCT_NAME = "동영상 요약 노트 생성기"
 CUSTOM_TEXT_MODEL_OPTION = "직접 입력"
 TRANSCRIPTION_MODEL_CHOICES = ["gpt-4o-mini-transcribe", "gpt-4o-transcribe"]
 TEXT_MODEL_CHOICES = ["gpt-5-nano", "gpt-4.1-nano", "gpt-4o-mini", CUSTOM_TEXT_MODEL_OPTION]
+VIDEO_FILE_PATTERN = " ".join(f"*{ext}" for ext in sorted(VIDEO_EXTENSIONS))
+AUDIO_FILE_PATTERN = " ".join(f"*{ext}" for ext in sorted(AUDIO_EXTENSIONS))
+MEDIA_FILE_PATTERN = f"{VIDEO_FILE_PATTERN} {AUDIO_FILE_PATTERN}"
 
 
 class SmoothScrollableFrame(ctk.CTkScrollableFrame):
@@ -531,7 +540,7 @@ class ClipNoteApp(ctk.CTk):
         self.file_entry = ctk.CTkEntry(
             file_row,
             textvariable=self.file_var,
-            placeholder_text="mp4, mov, mkv, avi, webm, mp3, wav 파일",
+            placeholder_text="mp4, mov, m4a, mp3, wav, amr 파일",
             height=40,
             font=self.font_input,
             corner_radius=7,
@@ -902,9 +911,9 @@ class ClipNoteApp(ctk.CTk):
         path = filedialog.askopenfilename(
             title="영상 또는 오디오 파일 선택",
             filetypes=[
-                ("영상/오디오 파일", "*.mp4 *.mov *.mkv *.avi *.webm *.m4v *.mp3 *.wav *.m4a *.aac *.flac *.ogg *.opus *.wma"),
-                ("영상 파일", "*.mp4 *.mov *.mkv *.avi *.webm *.m4v"),
-                ("오디오 파일", "*.mp3 *.wav *.m4a *.aac *.flac *.ogg *.opus *.wma"),
+                ("영상/오디오 파일", MEDIA_FILE_PATTERN),
+                ("영상 파일", VIDEO_FILE_PATTERN),
+                ("오디오 파일", AUDIO_FILE_PATTERN),
                 ("모든 파일", "*.*"),
             ],
         )

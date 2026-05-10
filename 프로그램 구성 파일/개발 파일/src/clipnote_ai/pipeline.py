@@ -37,7 +37,41 @@ SUPPORT_DIR_NAME = "기타 파일"
 SUPPORT_MARKDOWN_NAME = "요약 노트.md"
 SUPPORT_HTML_NAME = "요약 노트.html"
 USD_TO_KRW = 1459.10
-AUDIO_EXTENSIONS = {".mp3", ".wav", ".m4a", ".aac", ".flac", ".ogg", ".opus", ".wma"}
+AUDIO_EXTENSIONS = {
+    ".aac",
+    ".aif",
+    ".aiff",
+    ".amr",
+    ".caf",
+    ".flac",
+    ".m4a",
+    ".m4b",
+    ".mp3",
+    ".oga",
+    ".ogg",
+    ".opus",
+    ".wav",
+    ".wma",
+}
+VIDEO_EXTENSIONS = {
+    ".3g2",
+    ".3gp",
+    ".avi",
+    ".flv",
+    ".m2ts",
+    ".m4v",
+    ".mkv",
+    ".mov",
+    ".mp4",
+    ".mpeg",
+    ".mpg",
+    ".mts",
+    ".ogv",
+    ".ts",
+    ".webm",
+    ".wmv",
+}
+MEDIA_EXTENSIONS = VIDEO_EXTENSIONS | AUDIO_EXTENSIONS
 
 TEXT_MODEL_PRICING_USD_PER_1M = {
     "gpt-5.5": (5.00, 0.50, 30.00),

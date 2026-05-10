@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from clipnote_ai import pipeline as pipeline_module
-from clipnote_ai.pipeline import TranscriptChunk, VideoNotePipeline
+from clipnote_ai.pipeline import AUDIO_EXTENSIONS, TranscriptChunk, VIDEO_EXTENSIONS, VideoNotePipeline
 from clipnote_ai.settings import AppSettings
 
 
@@ -90,3 +90,8 @@ def test_unique_output_base_uses_parentheses_for_duplicates(tmp_path: Path):
     base = pipeline._unique_output_base(tmp_path, "2605101200 source", ".mp4")
 
     assert base.name == "2605101200 source (2)"
+
+
+def test_media_extensions_cover_common_phone_formats():
+    assert {".mov", ".mp4", ".3gp", ".m4v"} <= VIDEO_EXTENSIONS
+    assert {".mp3", ".m4a", ".amr", ".caf", ".aiff"} <= AUDIO_EXTENSIONS
