@@ -331,6 +331,8 @@ class ClipNoteApp(ctk.CTk):
             pady=3,
         )
         credit.grid(row=1, column=0, padx=32, pady=(0, 7), sticky="w")
+        credit.configure(cursor="hand2")
+        credit.bind("<Button-1>", lambda _event: self._open_developer_profile())
         subtitle = ctk.CTkLabel(
             header,
             text="릴스, 유튜브, 로컬 동영상을 저장하고 전체 스크립트 TXT와 상세 요약 TXT로 변환합니다.",
@@ -1388,6 +1390,10 @@ class ClipNoteApp(ctk.CTk):
             os.startfile(path)  # type: ignore[attr-defined]
         else:
             webbrowser.open(path.as_uri())
+
+    @staticmethod
+    def _open_developer_profile() -> None:
+        webbrowser.open("https://github.com/yeohj0710")
 
     def _on_close(self) -> None:
         self._set_processing_indicator(False)
