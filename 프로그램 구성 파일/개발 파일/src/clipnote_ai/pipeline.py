@@ -388,6 +388,27 @@ class VideoNotePipeline:
             )
         )
 
+    def _cookie_browser_candidates(self) -> list[str]:
+        selected = (self.settings.cookie_browser or "chrome").strip().lower()
+        common = [
+            selected,
+            "chrome",
+            "edge",
+            "firefox",
+            "brave",
+            "chromium",
+            "opera",
+            "vivaldi",
+            "whale",
+        ]
+        candidates: list[str] = []
+        seen: set[str] = set()
+        for browser in common:
+            if browser and browser not in seen:
+                candidates.append(browser)
+                seen.add(browser)
+        return candidates
+
     def _friendly_download_error(
         self,
         url: str,
@@ -399,9 +420,9 @@ class VideoNotePipeline:
             if self.settings.use_browser_cookies or retried_with_cookies:
                 return UserFacingError(
                     "Instagram에서 이 릴스를 바로 다운로드하지 못했습니다.\n\n"
-                    f"'{browser}' 브라우저 쿠키로 다시 시도했지만, 로그인 정보가 없거나 Instagram이 요청을 막았습니다.\n\n"
+                    f"'{browser}' 등 PC에 설치된 브라우저 쿠키로 다시 시도했지만, 로그인 정보가 없거나 Instagram이 요청을 막았습니다.\n\n"
                     "확인해 주세요.\n"
-                    "1. 선택한 브라우저에서 Instagram에 로그인되어 있는지 확인\n"
+                    "1. Chrome 또는 Edge에서 Instagram에 로그인되어 있는지 확인\n"
                     "2. 비공개/삭제된 릴스가 아닌지 확인\n"
                     "3. 브라우저를 완전히 닫은 뒤 다시 실행\n"
                     "4. 계속 안 되면 릴스를 직접 저장한 동영상 파일로 넣기"
@@ -413,6 +434,17 @@ class VideoNotePipeline:
                 "2. 프로그램의 '영상 가져오기'에서 '브라우저 쿠키 사용' 체크\n"
                 "3. 로그인한 브라우저를 선택한 뒤 다시 실행\n\n"
                 "그래도 안 되면 릴스를 직접 저장한 동영상 파일로 넣어 주세요."
+            )
+
+        if retried_with_cookies:
+            return UserFacingError(
+                "링크 영상을 다운로드하지 못했습니다.\n\n"
+                "PC에 설치된 브라우저 쿠키로 자동 재시도했지만 사이트에서 요청을 막았거나 로그인 정보가 부족합니다.\n\n"
+                "확인해 주세요.\n"
+                "1. 브라우저에서 해당 사이트에 로그인되어 있는지 확인\n"
+                "2. 브라우저에서 영상이 정상 재생되는지 확인\n"
+                "3. 브라우저를 완전히 닫은 뒤 다시 실행\n"
+                "4. 계속 안 되면 영상을 직접 저장한 파일로 넣기"
             )
 
         return UserFacingError(
@@ -448,6 +480,40 @@ class VideoNotePipeline:
                 downloaded = candidates[0]
         return downloaded.resolve(), title
 
+    def _download_with_browser_cookie_fallback(
+        self,
+        yt_dlp_module: object,
+        url: str,
+        base_opts: dict[str, object],
+        downloads_dir: Path,
+        started: str,
+        tried_browsers: set[str] | None = None,
+    ) -> tuple[Path, str]:
+        tried_browsers = tried_browsers or set()
+        last_error: Exception | None = None
+        for browser in self._cookie_browser_candidates():
+            if browser in tried_browsers:
+                continue
+            self.progress(
+                "브라우저 쿠키 자동 확인 중",
+                0.07,
+                f"{browser}에 저장된 로그인 정보로 링크 영상을 다시 시도합니다.",
+            )
+            retry_opts = dict(base_opts)
+            retry_opts["cookiesfrombrowser"] = (browser,)
+            try:
+                return self._download_with_ytdlp(yt_dlp_module, url, retry_opts, downloads_dir, started)
+            except Exception as exc:
+                last_error = exc
+                self.progress(
+                    "다른 브라우저 쿠키 확인 중",
+                    0.07,
+                    f"{browser} 쿠키로는 다운로드하지 못했습니다. 다른 브라우저를 확인합니다.",
+                )
+        if last_error is not None:
+            raise last_error
+        raise RuntimeError("사용 가능한 브라우저 쿠키 후보가 없습니다.")
+
     def _download_video(self, url: str, started: str, downloads_dir: Path) -> tuple[Path, str]:
         downloads_dir.mkdir(parents=True, exist_ok=True)
         self.progress(
@@ -468,32 +534,35 @@ class VideoNotePipeline:
             "windowsfilenames": True,
             "ffmpeg_location": str(self.ffmpeg),
         }
+        tried_browsers: set[str] = set()
         if self.settings.use_browser_cookies:
-            ydl_opts["cookiesfrombrowser"] = (self.settings.cookie_browser,)
+            browser = (self.settings.cookie_browser or "chrome").strip().lower()
+            ydl_opts["cookiesfrombrowser"] = (browser,)
+            tried_browsers.add(browser)
 
         try:
             downloaded, title = self._download_with_ytdlp(yt_dlp, url, ydl_opts, downloads_dir, started)
         except UserFacingError:
             raise
         except Exception as exc:
-            should_retry_with_cookies = (
-                self._is_instagram_url(url)
-                and not self.settings.use_browser_cookies
-                and self._download_error_needs_cookies(exc)
-            )
+            should_retry_with_cookies = self._download_error_needs_cookies(exc)
             if not should_retry_with_cookies:
                 raise self._friendly_download_error(url, exc) from exc
 
-            browser = self.settings.cookie_browser or "chrome"
             self.progress(
-                "브라우저 쿠키로 재시도 중",
+                "브라우저 쿠키 자동 재시도 중",
                 0.07,
-                f"Instagram 로그인이 필요한 영상이라 {browser} 브라우저 쿠키로 다시 시도합니다.",
+                "로그인이 필요할 수 있어 PC 브라우저에 저장된 쿠키를 자동으로 확인합니다.",
             )
-            retry_opts = dict(ydl_opts)
-            retry_opts["cookiesfrombrowser"] = (browser,)
             try:
-                downloaded, title = self._download_with_ytdlp(yt_dlp, url, retry_opts, downloads_dir, started)
+                downloaded, title = self._download_with_browser_cookie_fallback(
+                    yt_dlp,
+                    url,
+                    ydl_opts,
+                    downloads_dir,
+                    started,
+                    tried_browsers,
+                )
             except Exception as retry_exc:
                 raise self._friendly_download_error(url, retry_exc, retried_with_cookies=True) from retry_exc
         self.progress("영상 다운로드 완료", 0.09, f"저장된 동영상: {downloaded}")
