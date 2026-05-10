@@ -703,12 +703,12 @@ class ClipNoteApp(ctk.CTk):
         self.summary_sentence_entry.grid(row=1, column=0, padx=16, pady=(0, 14), sticky="w")
         ctk.CTkLabel(
             summary_box,
-            text="자동 기준은 전체 스크립트 문장의 약 1/5입니다. 자동 체크를 끄면 요약을 대략 몇 문장으로 만들지 직접 정할 수 있습니다.",
+            text="자동 기준: 전체 스크립트 문장의 약 1/5\n직접 정하려면 자동 체크를 끄고 문장 수를 입력하세요.",
             font=self.font_label,
             text_color="#64748b",
             justify="left",
             anchor="w",
-            wraplength=520,
+            wraplength=390,
         ).grid(row=2, column=0, padx=16, pady=(0, 14), sticky="ew")
 
         self._refresh_summary_mode()
