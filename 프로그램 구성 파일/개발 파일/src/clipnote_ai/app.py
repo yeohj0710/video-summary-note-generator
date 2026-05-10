@@ -41,6 +41,8 @@ class SmoothScrollableFrame(ctk.CTkScrollableFrame):
         self._smooth_scroll_after_id: str | None = None
         super().__init__(*args, **kwargs)
         self._add_scrollbar_breathing_room()
+        if self._orientation == "vertical":
+            self._scrollbar.configure(command=self._scrollbar_yview)
 
     def _add_scrollbar_breathing_room(self) -> None:
         if self._orientation != "vertical":
@@ -58,13 +60,21 @@ class SmoothScrollableFrame(ctk.CTkScrollableFrame):
         )
 
     def destroy(self) -> None:
+        self._cancel_smooth_scroll()
+        super().destroy()
+
+    def _cancel_smooth_scroll(self) -> None:
         if self._smooth_scroll_after_id is not None:
             try:
                 self.after_cancel(self._smooth_scroll_after_id)
             except tk.TclError:
                 pass
             self._smooth_scroll_after_id = None
-        super().destroy()
+        self._smooth_scroll_target_px = None
+
+    def _scrollbar_yview(self, *args: object) -> None:
+        self._cancel_smooth_scroll()
+        self._parent_canvas.yview(*args)
 
     def _mouse_wheel_all(self, event: tk.Event) -> str | None:
         if not self.check_if_master_is_canvas(event.widget):
