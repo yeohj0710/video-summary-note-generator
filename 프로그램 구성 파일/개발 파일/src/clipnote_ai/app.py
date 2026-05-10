@@ -387,14 +387,19 @@ class ClipNoteApp(ctk.CTk):
         return card
 
     def _make_select_only_combo(self, combo: ctk.CTkComboBox, allowed_values: list[str]) -> None:
+        def block_key_input(event: tk.Event | None = None) -> str | None:
+            if event is not None and getattr(event, "keysym", "") in {"Tab", "Escape"}:
+                return None
+            return "break"
+
         def restore_if_needed(_event: tk.Event | None = None) -> None:
             current = combo.get().strip()
             if current not in allowed_values:
                 combo.set(allowed_values[0])
 
         try:
-            combo._entry.configure(state="readonly")
-            combo._entry.bind("<KeyRelease>", restore_if_needed)
+            combo._entry.bind("<Key>", block_key_input)
+            combo._entry.bind("<<Paste>>", block_key_input)
             combo._entry.bind("<FocusOut>", restore_if_needed)
         except (tk.TclError, AttributeError):
             pass
