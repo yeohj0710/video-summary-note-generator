@@ -880,9 +880,7 @@ class VideoNotePipeline:
             system=(
                 "너는 한국어 영상 스크립트를 정리하는 전문 편집자다. "
                 "원문을 그대로 베끼지 않고, 핵심 의미와 행동을 읽기 쉬운 요약문으로 재구성한다. "
-                "원문에 없는 내용, 추측, 평가를 추가하지 않는다. "
-                "영상의 성격에 맞춰 정보형 영상은 개념, 절차, 근거, 수치, 조건, 결론을 중심으로 정리하고, "
-                "브이로그, 릴스, 홍보, 대화형 영상은 사건 흐름, 맥락, 핵심 장면, 주장, 분위기를 중심으로 정리한다."
+                "원문에 없는 내용, 추측, 평가를 추가하지 않는다."
             ),
             user=(
                 f"영상 제목: {title}\n\n"
@@ -934,26 +932,24 @@ class VideoNotePipeline:
             rough_count = max(1, len(transcript) // 70)
             source_sentence_count = rough_count
 
+        transcript_length = len(re.sub(r"\s+", "", transcript))
+        if transcript_length >= 1800:
+            return max(7, self._clamp_int(round(transcript_length / 320), 7, 18))
+        if transcript_length >= 900:
+            return max(5, self._clamp_int(round(transcript_length / 300), 5, 12))
+
         if source_sentence_count <= 4:
             return 1 if len(transcript) <= 260 else 2
         if source_sentence_count <= 8:
-            return 2
+            return 3 if transcript_length >= 520 else 2
         if source_sentence_count <= 12:
             return 3
         return self._clamp_int(round(source_sentence_count / 5), 6, 120)
 
     def _summary_mode_instruction(self, transcript: str, source_kind: str) -> str:
-        sentence_count = len(self._split_sentences(transcript))
-        is_short = sentence_count <= 8 or len(transcript) <= 520 or "릴스" in source_kind
-        if is_short:
-            return (
-                "짧은 영상 요약 방식: 원문을 문장별로 다시 쓰지 말고, "
-                "영상이 알려주는 핵심 행동/절차/결론을 1-2문장으로 압축한다. "
-                "튜토리얼이면 '무엇을 하려면 어떤 앱/버튼/단계를 거치면 된다' 형태로 정리한다."
-            )
         return (
-            "긴 영상 요약 방식: 전체 흐름을 보존하되 반복과 잡담을 줄이고, "
-            "중요한 주장, 근거, 단계, 수치, 예외를 중심으로 상세하게 정리한다."
+            "요약 방식: 목표 길이에 맞춰 전체 흐름을 보존하고, 반복과 군더더기는 줄인다. "
+            "중요한 정보, 구체적인 표현, 단계, 수치, 원인과 결과는 가능한 한 남긴다."
         )
 
     @staticmethod

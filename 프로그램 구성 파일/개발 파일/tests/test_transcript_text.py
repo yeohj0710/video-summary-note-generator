@@ -56,15 +56,36 @@ def test_summary_target_for_short_script_is_compact():
     assert pipeline._summary_target_sentence_count(transcript) == 1
 
 
-def test_short_reels_summary_instruction_asks_for_rewritten_core():
+def test_summary_target_uses_length_when_sentence_count_is_low():
+    pipeline = VideoNotePipeline.__new__(VideoNotePipeline)
+    pipeline.settings = AppSettings(auto_summary_sentences=True)
+    transcript = " ".join(["Say, you're running up the road, push the pedal, I won't crash"] * 45)
+
+    assert pipeline._summary_target_sentence_count(transcript) >= 7
+
+
+def test_summary_instruction_stays_general():
     pipeline = VideoNotePipeline.__new__(VideoNotePipeline)
     instruction = pipeline._summary_mode_instruction(
         "CapCut을 불러와 주세요. Overlay 버튼을 누르세요.",
         "인스타그램 릴스 또는 짧은 세로 영상",
     )
 
-    assert "원문을 문장별로 다시 쓰지 말고" in instruction
-    assert "1-2문장" in instruction
+    assert "요약 방식" in instruction
+    assert "목표 길이" in instruction
+    assert "튜토리얼" not in instruction
+    assert "가사" not in instruction
+
+
+def test_long_repeated_transcript_is_not_forced_into_special_case_prompt():
+    pipeline = VideoNotePipeline.__new__(VideoNotePipeline)
+    transcript = " ".join(["Say, you're running up the road, push the pedal, I won't crash"] * 45)
+
+    instruction = pipeline._summary_mode_instruction(transcript, "유튜브 영상")
+
+    assert "짧은 영상 요약 방식" not in instruction
+    assert "1-2문장" not in instruction
+    assert "중간 길이 요약 방식" not in instruction
 
 
 def test_summary_target_can_be_set_manually():
