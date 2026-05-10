@@ -40,6 +40,25 @@ def test_summary_target_defaults_to_one_fifth_of_script_sentences():
     assert pipeline._summary_target_sentence_count(transcript) == 10
 
 
+def test_summary_target_for_short_script_is_compact():
+    pipeline = VideoNotePipeline.__new__(VideoNotePipeline)
+    pipeline.settings = AppSettings(auto_summary_sentences=True)
+    transcript = "CapCut을 불러와 주세요. Overlay 버튼을 누르세요. 다른 영상을 불러와 크기를 맞추세요."
+
+    assert pipeline._summary_target_sentence_count(transcript) == 1
+
+
+def test_short_reels_summary_instruction_asks_for_rewritten_core():
+    pipeline = VideoNotePipeline.__new__(VideoNotePipeline)
+    instruction = pipeline._summary_mode_instruction(
+        "CapCut을 불러와 주세요. Overlay 버튼을 누르세요.",
+        "인스타그램 릴스 또는 짧은 세로 영상",
+    )
+
+    assert "원문을 문장별로 다시 쓰지 말고" in instruction
+    assert "1-2문장" in instruction
+
+
 def test_summary_target_can_be_set_manually():
     pipeline = VideoNotePipeline.__new__(VideoNotePipeline)
     pipeline.settings = AppSettings(auto_summary_sentences=False, summary_sentence_count=17)

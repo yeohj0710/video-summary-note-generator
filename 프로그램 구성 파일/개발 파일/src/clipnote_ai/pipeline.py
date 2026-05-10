@@ -664,10 +664,11 @@ class VideoNotePipeline:
         self.progress("요약 정리 중", 0.86, "전체 스크립트를 기준으로 적절한 길이의 상세 요약을 만들고 있습니다.")
         transcript = self._summary_source_text(chunks)
         target_sentences = self._summary_target_sentence_count(transcript)
+        summary_mode = self._summary_mode_instruction(transcript, source_kind)
         summary = self._text_response(
             system=(
                 "너는 한국어 영상 스크립트를 정리하는 전문 편집자다. "
-                "짧게 뭉개는 요약이 아니라, 핵심 디테일을 보존하는 상세 요약본을 만든다. "
+                "원문을 그대로 베끼지 않고, 핵심 의미와 행동을 읽기 쉬운 요약문으로 재구성한다. "
                 "원문에 없는 내용, 추측, 평가를 추가하지 않는다. "
                 "영상의 성격에 맞춰 정보형 영상은 개념, 절차, 근거, 수치, 조건, 결론을 중심으로 정리하고, "
                 "브이로그, 릴스, 홍보, 대화형 영상은 사건 흐름, 맥락, 핵심 장면, 주장, 분위기를 중심으로 정리한다."
@@ -676,11 +677,13 @@ class VideoNotePipeline:
                 f"영상 제목: {title}\n\n"
                 f"영상 유형: {source_kind}\n"
                 f"목표 길이: 약 {target_sentences}문장\n\n"
+                f"{summary_mode}\n\n"
                 "아래 전사문 전체를 입력으로 삼아 요약해 주세요.\n\n"
                 "요약 원칙:\n"
                 "- 핵심 수치, 금액, 날짜, 기간, 비율, 조건, 인물/회사/제품명, 단계, 예외, 원인과 결과는 반드시 남긴다.\n"
                 "- 반복 표현, 말버릇, 중복 설명, 진행자가 시간을 끄는 말만 줄인다.\n"
                 "- 단순히 비례해서 줄이지 말고, 중요한 정보 밀도가 높은 부분은 길게 남긴다.\n"
+                "- 원문 문장을 그대로 나열하지 말고, 사용자가 바로 이해할 수 있게 자연스럽게 압축한다.\n"
                 "- 목표 길이를 크게 벗어나지 않되, 중요한 디테일을 버려야 할 정도로 억지로 줄이지는 않는다.\n"
                 "- 원문의 순서를 최대한 유지한다.\n"
                 "- 확실하지 않은 내용은 단정하지 않는다.\n\n"
@@ -720,9 +723,27 @@ class VideoNotePipeline:
             rough_count = max(1, len(transcript) // 70)
             source_sentence_count = rough_count
 
+        if source_sentence_count <= 4:
+            return 1 if len(transcript) <= 260 else 2
+        if source_sentence_count <= 8:
+            return 2
         if source_sentence_count <= 12:
-            return max(3, min(source_sentence_count, round(source_sentence_count * 0.6)))
+            return 3
         return self._clamp_int(round(source_sentence_count / 5), 6, 120)
+
+    def _summary_mode_instruction(self, transcript: str, source_kind: str) -> str:
+        sentence_count = len(self._split_sentences(transcript))
+        is_short = sentence_count <= 8 or len(transcript) <= 520 or "릴스" in source_kind
+        if is_short:
+            return (
+                "짧은 영상 요약 방식: 원문을 문장별로 다시 쓰지 말고, "
+                "영상이 알려주는 핵심 행동/절차/결론을 1-2문장으로 압축한다. "
+                "튜토리얼이면 '무엇을 하려면 어떤 앱/버튼/단계를 거치면 된다' 형태로 정리한다."
+            )
+        return (
+            "긴 영상 요약 방식: 전체 흐름을 보존하되 반복과 잡담을 줄이고, "
+            "중요한 주장, 근거, 단계, 수치, 예외를 중심으로 상세하게 정리한다."
+        )
 
     @staticmethod
     def _clamp_int(value: object, low: int, high: int) -> int:
