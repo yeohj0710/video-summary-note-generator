@@ -424,10 +424,30 @@ class ClipNoteApp(ctk.CTk):
             text_color="#64748b",
             justify="left",
             anchor="w",
-            wraplength=560,
+            wraplength=1,
         )
         label.grid(row=row, column=0, padx=padx, pady=(0, 12), sticky="ew")
+        self._bind_responsive_wrap(label, parent, padx=padx)
         return label
+
+    def _bind_responsive_wrap(
+        self,
+        label: ctk.CTkLabel,
+        parent: ctk.CTkBaseClass,
+        padx: int = 22,
+        max_width: int = 560,
+        min_width: int = 220,
+    ) -> None:
+        def update_wraplength(_event: tk.Event | None = None) -> None:
+            try:
+                available_width = parent.winfo_width() - (padx * 2)
+                wrap_width = max(min_width, min(max_width, available_width))
+                label.configure(wraplength=wrap_width)
+            except tk.TclError:
+                return
+
+        parent.bind("<Configure>", update_wraplength, add="+")
+        label.after_idle(update_wraplength)
 
     def _source_card(self, parent: ctk.CTkBaseClass) -> ctk.CTkFrame:
         card = self._card(parent, "1. 영상 가져오기")

@@ -68,9 +68,12 @@ Copy-Item $BuiltExe (Join-Path $RepoRoot $ExeFileName) -Force
 
 New-Item -ItemType Directory -Force -Path $ProgramFilesDir | Out-Null
 $DevRootResolved = (Resolve-Path $DevRoot).Path
+$PreservedProgramFiles = @(
+    (Join-Path $ProgramFilesDir "github-download-zip.png")
+)
 Get-ChildItem $ProgramFilesDir -Force | ForEach-Object {
     $ItemPath = (Resolve-Path $_.FullName).Path
-    if ($ItemPath -ne $DevRootResolved) {
+    if ($ItemPath -ne $DevRootResolved -and $ItemPath -notin $PreservedProgramFiles) {
         Remove-Item -LiteralPath $_.FullName -Recurse -Force
     }
 }
