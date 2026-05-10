@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>영상 가져오기 도움말</title>
+  <style>
+    :root {
+      --text: #111827;
+      --muted: #475569;
+      --line: #dbe3ef;
+      --blue: #2563eb;
+      --soft: #eef4ff;
+      --panel: #ffffff;
+      --bg: #f4f7fb;
+      --warn: #fff7ed;
+      --warn-line: #fed7aa;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Pretendard", "Malgun Gothic", "Segoe UI", sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      line-height: 1.75;
+    }
+    main {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 46px 24px 72px;
+    }
+    header { margin-bottom: 24px; }
+    h1 {
+      margin: 0 0 10px;
+      font-size: 34px;
+      letter-spacing: 0;
+    }
+    h2 {
+      margin: 0 0 14px;
+      font-size: 22px;
+      letter-spacing: 0;
+    }
+    h3 {
+      margin: 22px 0 8px;
+      font-size: 18px;
+    }
+    p { margin: 0 0 12px; }
+    .lead {
+      margin: 0;
+      color: var(--muted);
+      font-size: 16px;
+    }
+    section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 24px;
+      margin: 16px 0;
+    }
+    ol, ul {
+      padding-left: 24px;
+      margin: 10px 0 0;
+    }
+    li + li { margin-top: 8px; }
+    .path, code {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 6px;
+      background: var(--soft);
+      color: #1e40af;
+      font-family: "Cascadia Mono", Consolas, monospace;
+      font-size: 0.95em;
+    }
+    .note {
+      border-left: 4px solid var(--blue);
+      background: #f8fbff;
+      padding: 12px 14px;
+      color: var(--muted);
+      margin-top: 14px;
+    }
+    .warn {
+      border: 1px solid var(--warn-line);
+      background: var(--warn);
+      border-radius: 9px;
+      padding: 13px 15px;
+      margin-top: 14px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+    }
+    th, td {
+      border: 1px solid var(--line);
+      padding: 12px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: #f1f5f9; }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>영상 가져오기 도움말</h1>
+    <p class="lead">릴스, 유튜브 링크, 내 컴퓨터 영상 파일을 어떻게 넣어야 하는지 처음 쓰는 사람 기준으로 설명합니다.</p>
+  </header>
+
+  <section>
+    <h2>1. 먼저 둘 중 하나만 고르세요</h2>
+    <p>프로그램의 <span class="path">영상 가져오기</span> 영역에는 두 가지 방식이 있습니다.</p>
+    <table>
+      <thead>
+        <tr><th>방식</th><th>언제 쓰나요?</th><th>무엇을 입력하나요?</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="path">링크로 가져오기</span></td>
+          <td>유튜브 영상이나 인스타그램 릴스를 인터넷 주소로 가져올 때 사용합니다.</td>
+          <td>영상 페이지 주소를 붙여넣습니다.</td>
+        </tr>
+        <tr>
+          <td><span class="path">내 컴퓨터 파일</span></td>
+          <td>이미 PC에 저장된 녹화 파일, 강의 영상, 다운로드한 영상을 사용할 때 선택합니다.</td>
+          <td><span class="path">파일 선택</span> 버튼으로 영상 파일을 고릅니다.</td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="note">링크와 파일을 동시에 넣는 것이 아닙니다. 위쪽 선택 버튼에서 현재 사용할 방식 하나만 고르면 됩니다.</p>
+  </section>
+
+  <section>
+    <h2>2. 유튜브 링크 넣는 법</h2>
+    <ol>
+      <li>브라우저에서 유튜브 영상을 엽니다.</li>
+      <li>주소창의 주소를 복사합니다.</li>
+      <li>프로그램에서 <span class="path">링크로 가져오기</span>를 선택합니다.</li>
+      <li><span class="path">릴스 또는 유튜브 링크</span> 입력칸에 붙여넣습니다.</li>
+      <li><span class="path">노트 만들기</span>를 누릅니다.</li>
+    </ol>
+    <h3>사용 가능한 예시</h3>
+    <ul>
+      <li><span class="path">https://www.youtube.com/watch?v=...</span></li>
+      <li><span class="path">https://youtu.be/...</span></li>
+      <li><span class="path">https://www.youtube.com/shorts/...</span></li>
+    </ul>
+    <p class="warn">비공개 영상, 멤버십 영상, 연령 제한 영상, 회사/학교 계정으로만 볼 수 있는 영상은 다운로드가 막힐 수 있습니다.</p>
+  </section>
+
+  <section>
+    <h2>3. 인스타그램 릴스 링크 넣는 법</h2>
+    <ol>
+      <li>인스타그램에서 릴스 화면을 엽니다.</li>
+      <li>공유 또는 더보기 메뉴에서 링크를 복사합니다.</li>
+      <li>프로그램에서 <span class="path">링크로 가져오기</span>를 선택합니다.</li>
+      <li>복사한 링크를 입력칸에 붙여넣습니다.</li>
+      <li>로그인이 필요한 릴스라면 <span class="path">브라우저 쿠키 사용</span>을 켭니다.</li>
+    </ol>
+    <h3>쿠키 사용이 필요한 경우</h3>
+    <ul>
+      <li>브라우저에서는 보이는데 프로그램에서는 다운로드가 실패할 때</li>
+      <li>로그인해야 볼 수 있는 릴스일 때</li>
+      <li>비공개 계정, 제한된 공개 범위, 연령 확인이 걸린 영상일 때</li>
+    </ul>
+    <p class="note">쿠키 사용을 켤 때는 실제로 로그인되어 있는 브라우저를 선택하세요. 예를 들어 Chrome에 로그인되어 있으면 <span class="path">chrome</span>을 고르면 됩니다.</p>
+  </section>
+
+  <section>
+    <h2>4. 내 컴퓨터 영상 파일 넣는 법</h2>
+    <ol>
+      <li><span class="path">내 컴퓨터 파일</span>을 선택합니다.</li>
+      <li><span class="path">파일 선택</span> 버튼을 누릅니다.</li>
+      <li>사용할 영상 파일을 고릅니다.</li>
+      <li><span class="path">노트 만들기</span>를 누릅니다.</li>
+    </ol>
+    <h3>추천 파일 형식</h3>
+    <ul>
+      <li><span class="path">mp4</span>: 가장 추천합니다.</li>
+      <li><span class="path">mov</span>, <span class="path">mkv</span>, <span class="path">avi</span>, <span class="path">webm</span>: 대부분 처리 가능합니다.</li>
+    </ul>
+    <p class="warn">영상에 소리가 없거나 음성 트랙이 분리되어 있으면 전사가 실패할 수 있습니다. 영상 재생 시 사람 목소리가 들리는지 먼저 확인하세요.</p>
+  </section>
+
+  <section>
+    <h2>5. 결과 파일은 어디에 생기나요?</h2>
+    <p>작업이 끝나면 <span class="path">생성된 노트</span> 폴더에 같은 이름의 파일들이 나란히 저장됩니다.</p>
+    <ul>
+      <li><span class="path">영상제목.mp4</span>: 링크 영상은 다운로드되고, 내 컴퓨터 파일은 복사됩니다.</li>
+      <li><span class="path">영상제목.txt</span>: 전체 스크립트입니다.</li>
+      <li><span class="path">영상제목_요약.txt</span>: 전체 스크립트를 바탕으로 만든 요약입니다.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>6. 자주 막히는 상황</h2>
+    <table>
+      <thead>
+        <tr><th>상황</th><th>해결 방법</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>링크를 넣었는데 다운로드가 안 됩니다.</td>
+          <td>주소가 <span class="path">https://</span>로 시작하는지 확인하고, 브라우저에서 영상이 실제로 재생되는지 확인하세요.</td>
+        </tr>
+        <tr>
+          <td>릴스가 브라우저에서는 보이는데 프로그램에서는 안 됩니다.</td>
+          <td><span class="path">브라우저 쿠키 사용</span>을 켜고, 로그인된 브라우저를 선택하세요.</td>
+        </tr>
+        <tr>
+          <td>전사 중 실패합니다.</td>
+          <td>영상에 음성이 있는지 확인하세요. 너무 손상된 파일이면 다른 플레이어에서 다시 저장한 뒤 시도하는 것이 좋습니다.</td>
+        </tr>
+        <tr>
+          <td>결과 파일이 어디 있는지 모르겠습니다.</td>
+          <td>작업 완료 후 <span class="path">결과 폴더 열기</span> 버튼을 누르세요.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>7. 쉬운 사용 팁</h2>
+    <ul>
+      <li>처음에는 짧은 영상으로 테스트해 보세요.</li>
+      <li>유튜브 강의처럼 긴 영상은 처리 시간이 꽤 걸릴 수 있습니다.</li>
+      <li>릴스처럼 짧은 영상은 요약보다 전체 스크립트가 더 유용할 때도 있습니다.</li>
+      <li>다운로드가 반복해서 실패하면 영상을 브라우저에서 직접 다운로드하거나 녹화해서 <span class="path">내 컴퓨터 파일</span> 방식으로 넣는 것이 가장 쉽습니다.</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>

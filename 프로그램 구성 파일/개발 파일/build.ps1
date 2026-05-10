@@ -7,6 +7,7 @@ $ProgramDirName = -join ([char[]](0xD504, 0xB85C, 0xADF8, 0xB7A8, 0x20, 0xAD6C, 
 $NotesDirName = -join ([char[]](0xC0DD, 0xC131, 0xB41C, 0x20, 0xB178, 0xD2B8))
 $GuideFileName = (-join ([char[]](0xC0AC, 0xC6A9, 0xC124, 0xBA85, 0xC11C))) + ".html"
 $ApiGuideFileName = "openai_api_key_guide.html"
+$SourceGuideFileName = "video_source_guide.html"
 $ExeBaseName = -join ([char[]](0xB3D9, 0xC601, 0xC0C1, 0x20, 0xC694, 0xC57D, 0x20, 0xB178, 0xD2B8, 0x20, 0xC0DD, 0xC131, 0xAE30))
 $ExeFileName = $ExeBaseName + ".exe"
 Set-Location $DevRoot
@@ -69,6 +70,7 @@ Get-ChildItem $ProgramFilesDir -Force | ForEach-Object {
 }
 Copy-Item (Join-Path $BuiltRuntimeDir "*") $ProgramFilesDir -Recurse -Force
 Copy-Item (Join-Path $DevRoot $ApiGuideFileName) (Join-Path $ProgramFilesDir $ApiGuideFileName) -Force
+Copy-Item (Join-Path $DevRoot $SourceGuideFileName) (Join-Path $ProgramFilesDir $SourceGuideFileName) -Force
 
 $NotesDir = Join-Path $RepoRoot $NotesDirName
 New-Item -ItemType Directory -Force -Path $NotesDir | Out-Null

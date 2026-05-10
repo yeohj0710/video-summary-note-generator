@@ -14,6 +14,7 @@ video-summary-note-generator/
   생성된 노트/
   프로그램 구성 파일/
     openai_api_key_guide.html
+    video_source_guide.html
 ```
 
 ## 결과물 구조

@@ -367,6 +367,19 @@ class ClipNoteApp(ctk.CTk):
 
     def _source_card(self, parent: ctk.CTkBaseClass) -> ctk.CTkFrame:
         card = self._card(parent, "1. 영상 가져오기")
+        self.source_guide_button = ctk.CTkButton(
+            card,
+            text="가져오기 도움말",
+            width=128,
+            height=32,
+            corner_radius=7,
+            font=self.font_label,
+            fg_color=self.secondary_color,
+            hover_color=self.secondary_hover,
+            text_color=self.secondary_text,
+            command=self._open_source_guide,
+        )
+        self.source_guide_button.grid(row=0, column=0, padx=22, pady=(18, 12), sticky="e")
 
         ctk.CTkLabel(card, text="가져올 방식", font=self.font_label, text_color="#334155").grid(
             row=1, column=0, padx=22, pady=(0, 8), sticky="w"
@@ -483,6 +496,7 @@ class ClipNoteApp(ctk.CTk):
     def _register_processing_controls(self) -> None:
         self.processing_locked_widgets = [
             self.source_mode_switch,
+            self.source_guide_button,
             self.url_entry,
             self.use_cookies_checkbox,
             self.cookie_browser_combo,
@@ -796,7 +810,7 @@ class ClipNoteApp(ctk.CTk):
             return
 
         if self.api_key_locked:
-            self.api_key_entry.configure(state="disabled", fg_color="#f8fafc", border_color="#cbd5e1")
+            self.api_key_entry.configure(state="disabled", fg_color="#edf2f7", border_color="#cbd5e1", text_color="#475569")
             self.api_key_lock_button.configure(
                 state="normal",
                 text="수정",
@@ -1114,6 +1128,11 @@ class ClipNoteApp(ctk.CTk):
             return Path(sys.executable).resolve().parent / "프로그램 구성 파일" / "openai_api_key_guide.html"
         return Path(__file__).resolve().parents[2] / "openai_api_key_guide.html"
 
+    def _source_guide_path(self) -> Path:
+        if getattr(sys, "frozen", False):
+            return Path(sys.executable).resolve().parent / "프로그램 구성 파일" / "video_source_guide.html"
+        return Path(__file__).resolve().parents[2] / "video_source_guide.html"
+
     def _open_user_guide(self) -> None:
         path = self._guide_path()
         if not path.exists():
@@ -1128,6 +1147,16 @@ class ClipNoteApp(ctk.CTk):
         path = self._api_key_guide_path()
         if not path.exists():
             messagebox.showwarning("API 키 가이드 없음", f"API 키 가이드 파일을 찾지 못했습니다.\n\n{path}")
+            return
+        if os.name == "nt":
+            os.startfile(path)  # type: ignore[attr-defined]
+        else:
+            webbrowser.open(path.as_uri())
+
+    def _open_source_guide(self) -> None:
+        path = self._source_guide_path()
+        if not path.exists():
+            messagebox.showwarning("영상 가져오기 도움말 없음", f"영상 가져오기 도움말 파일을 찾지 못했습니다.\n\n{path}")
             return
         if os.name == "nt":
             os.startfile(path)  # type: ignore[attr-defined]
