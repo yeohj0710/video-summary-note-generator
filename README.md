@@ -4,6 +4,22 @@
 
 **developed by yeohj0710**
 
+## GitHub에서 다운로드하는 방법
+
+프로그램은 아래 GitHub 페이지에서 받을 수 있습니다.
+
+[영상·음성 요약 노트 생성기 다운로드 페이지](https://github.com/yeohj0710/media-summary-note-generator)
+
+1. 위 링크를 엽니다.
+2. 오른쪽 위의 초록색 `Code` 버튼을 누릅니다.
+3. 아래쪽의 `Download ZIP`을 누릅니다.
+4. 내려받은 ZIP 파일의 압축을 풉니다.
+5. 폴더 안의 `영상·음성 요약 노트 생성기.exe`를 실행합니다.
+
+아래 이미지처럼 `Code` 버튼을 누른 뒤 `Download ZIP`을 선택하면 됩니다.
+
+![GitHub Download ZIP 위치](프로그램%20구성%20파일/github-download-zip.png)
+
 ## 결과물
 
 작업이 끝나면 `생성된 노트` 폴더 안에 파일 3개가 바로 생깁니다. 하위 폴더는 만들지 않습니다.
