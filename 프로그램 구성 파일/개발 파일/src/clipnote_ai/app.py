@@ -623,7 +623,11 @@ class ClipNoteApp(ctk.CTk):
             command=self._open_api_key_guide,
         )
         self.api_key_guide_button.grid(row=0, column=0, padx=22, pady=(18, 12), sticky="e")
-        self._helper_label(card, "전사와 요약을 만들기 위해 본인 OpenAI API 키를 입력하는 곳입니다.", 1)
+        self._helper_label(
+            card,
+            "전사와 요약을 만들기 위해 본인 OpenAI API 키를 입력하는 곳입니다. 기본 설정 기준 10분 영상은 보통 수십 원 정도로 처리됩니다.",
+            1,
+        )
         ctk.CTkLabel(card, text="API 키", font=self.font_label, text_color="#334155").grid(
             row=2, column=0, padx=22, pady=(0, 7), sticky="w"
         )
@@ -826,7 +830,7 @@ class ClipNoteApp(ctk.CTk):
         self.output_dir_button.grid(row=0, column=1)
         ctk.CTkLabel(
             card,
-            text="기본값은 repo 안의 '생성된 노트' 폴더입니다. 결과 파일을 찾기 쉬우면 그대로 두면 됩니다.",
+            text="기본값은 프로그램 폴더 안의 '생성된 노트' 폴더입니다. 결과 파일을 찾기 쉬우니 그대로 두면 됩니다.",
             font=self.font_label,
             text_color="#64748b",
             justify="left",
