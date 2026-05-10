@@ -682,7 +682,7 @@ class ClipNoteApp(ctk.CTk):
 
         summary_box = ctk.CTkFrame(card, fg_color="#f6f8fb", corner_radius=8)
         summary_box.grid(row=3, column=0, padx=22, pady=(0, 22), sticky="ew")
-        summary_box.grid_columnconfigure((0, 1), weight=1)
+        summary_box.grid_columnconfigure(0, weight=1)
 
         self.summary_sentence_label = ctk.CTkLabel(
             summary_box,
@@ -702,23 +702,13 @@ class ClipNoteApp(ctk.CTk):
         self.summary_sentence_entry.grid(row=1, column=0, padx=16, pady=(0, 14), sticky="w")
         ctk.CTkLabel(
             summary_box,
-            text="자동 체크를 끄면 요약을 대략 몇 문장으로 만들지 직접 정할 수 있습니다.",
+            text="자동 기준은 전체 스크립트 문장의 약 1/5입니다. 자동 체크를 끄면 요약을 대략 몇 문장으로 만들지 직접 정할 수 있습니다.",
             font=self.font_label,
             text_color="#64748b",
             justify="left",
             anchor="w",
-            wraplength=250,
+            wraplength=520,
         ).grid(row=2, column=0, padx=16, pady=(0, 14), sticky="ew")
-
-        ctk.CTkLabel(
-            summary_box,
-            text="자동 기준: 전체 스크립트 문장의 약 1/5",
-            font=self.font_label,
-            text_color="#64748b",
-            justify="right",
-            anchor="e",
-            wraplength=250,
-        ).grid(row=1, column=1, padx=16, pady=(0, 14), sticky="e")
 
         self._refresh_summary_mode()
         return card

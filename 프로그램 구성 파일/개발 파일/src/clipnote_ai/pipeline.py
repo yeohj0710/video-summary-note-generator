@@ -285,7 +285,7 @@ class VideoNotePipeline:
             or candidate.with_name(f"{candidate.name}_요약").with_suffix(".txt").exists()
         ):
             suffix += 1
-            candidate = output_root / f"{base_name}_{suffix}"
+            candidate = output_root / f"{base_name} ({suffix})"
         return candidate
 
     def _source_kind(self, source: str) -> str:

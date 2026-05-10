@@ -43,3 +43,12 @@ def test_run_writes_video_and_txt_pair_in_output_root(tmp_path: Path, monkeypatc
     assert result.summary_path.stem.endswith("_\uc694\uc57d")
     assert "\n\n" in result.transcript_path.read_text(encoding="utf-8")
     assert "핵심 디테일" in result.summary_path.read_text(encoding="utf-8")
+
+
+def test_unique_output_base_uses_parentheses_for_duplicates(tmp_path: Path):
+    pipeline = VideoNotePipeline.__new__(VideoNotePipeline)
+    (tmp_path / "2605101200 source.mp4").write_bytes(b"old")
+
+    base = pipeline._unique_output_base(tmp_path, "2605101200 source", ".mp4")
+
+    assert base.name == "2605101200 source (2)"
