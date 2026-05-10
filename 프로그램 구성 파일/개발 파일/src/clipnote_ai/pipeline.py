@@ -316,9 +316,9 @@ class VideoNotePipeline:
 
         safe_title = sanitize_filename(source_title)
         final_base = self._unique_output_base(output_root, f"{started} {safe_title}", source_video_path.suffix or ".mp4")
-        video_path = final_base.with_suffix(source_video_path.suffix or ".mp4")
-        transcript_path = final_base.with_suffix(".txt")
-        summary_path = final_base.with_name(f"{final_base.name}_요약").with_suffix(".txt")
+        video_path = self._output_path(final_base, source_video_path.suffix or ".mp4")
+        transcript_path = self._output_path(final_base, ".txt")
+        summary_path = self._summary_output_path(final_base)
 
         if source_video_path.resolve() != video_path.resolve():
             self.progress("파일 저장 중", 0.10, f"파일을 결과 폴더에 저장합니다: {video_path.name}")
@@ -355,13 +355,22 @@ class VideoNotePipeline:
         candidate = output_root / base_name
         suffix = 1
         while (
-            candidate.with_suffix(video_suffix).exists()
-            or candidate.with_suffix(".txt").exists()
-            or candidate.with_name(f"{candidate.name}_요약").with_suffix(".txt").exists()
+            self._output_path(candidate, video_suffix).exists()
+            or self._output_path(candidate, ".txt").exists()
+            or self._summary_output_path(candidate).exists()
         ):
             suffix += 1
             candidate = output_root / f"{base_name} ({suffix})"
         return candidate
+
+    @staticmethod
+    def _output_path(base: Path, suffix: str) -> Path:
+        normalized_suffix = suffix if suffix.startswith(".") else f".{suffix}"
+        return base.parent / f"{base.name}{normalized_suffix}"
+
+    @staticmethod
+    def _summary_output_path(base: Path) -> Path:
+        return base.parent / f"{base.name}_요약.txt"
 
     def _source_kind(self, source: str) -> str:
         if not self.is_url(source):
@@ -433,6 +442,7 @@ class VideoNotePipeline:
         if not title:
             return ""
 
+        title = VideoNotePipeline._drop_repeated_title_suffix(title)
         if len(title) <= max_length:
             return title
 
@@ -440,6 +450,33 @@ class VideoNotePipeline:
         if boundary >= 20:
             return title[: boundary + 1].strip()
         return title[:max_length].rstrip() + "..."
+
+    @staticmethod
+    def _drop_repeated_title_suffix(title: str) -> str:
+        cleaned = re.sub(r"\s+", " ", title).strip()
+        while cleaned.endswith(")"):
+            depth = 0
+            opener_index = -1
+            for index in range(len(cleaned) - 1, -1, -1):
+                char = cleaned[index]
+                if char == ")":
+                    depth += 1
+                elif char == "(":
+                    depth -= 1
+                    if depth == 0:
+                        opener_index = index
+                        break
+            if opener_index <= 0:
+                break
+
+            prefix = cleaned[:opener_index].strip()
+            inner = cleaned[opener_index + 1 : -1].strip()
+            if not prefix or not inner:
+                break
+            if VideoNotePipeline._compact_heading(prefix) != VideoNotePipeline._compact_heading(inner):
+                break
+            cleaned = prefix
+        return cleaned
 
     @staticmethod
     def _is_instagram_url(url: str) -> bool:

@@ -21,8 +21,44 @@ def resource_path(*parts: str) -> Path:
 def sanitize_filename(value: str, fallback: str = "media") -> str:
     cleaned = "".join("_" if ch in INVALID_FILENAME_CHARS else ch for ch in value)
     cleaned = re.sub(r"\s+", " ", cleaned).strip(" .")
-    cleaned = cleaned[:90].strip(" .")
+    cleaned = _truncate_filename(cleaned, 90)
     return cleaned or fallback
+
+
+def _truncate_filename(value: str, max_length: int) -> str:
+    if len(value) <= max_length:
+        return value.strip(" .")
+
+    truncated = value[:max_length].rstrip(" .-_")
+    best_boundary = max(
+        truncated.rfind(mark)
+        for mark in (
+            " - ",
+            " | ",
+            " / ",
+            ") ",
+            "] ",
+            "} ",
+            ". ",
+            ", ",
+        )
+    )
+    if best_boundary >= max_length * 0.55:
+        truncated = truncated[: best_boundary + 1].rstrip(" .-_")
+
+    truncated = _drop_unclosed_tail(truncated, "(", ")")
+    truncated = _drop_unclosed_tail(truncated, "[", "]")
+    truncated = _drop_unclosed_tail(truncated, "{", "}")
+    return truncated.strip(" .-_") or value[:max_length].strip(" .-_")
+
+
+def _drop_unclosed_tail(value: str, opener: str, closer: str) -> str:
+    if value.count(opener) <= value.count(closer):
+        return value
+    cut = value.rfind(opener)
+    if cut <= 0:
+        return value
+    return value[:cut].rstrip(" .-_")
 
 
 def format_timecode(seconds: float | int) -> str:

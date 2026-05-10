@@ -22,6 +22,15 @@ def test_best_source_title_keeps_real_youtube_title():
     assert pipeline._best_source_title(info) == "마케팅 프레임워크 강의 1부"
 
 
+def test_best_source_title_removes_repeated_parenthetical_suffix():
+    pipeline = VideoNotePipeline.__new__(VideoNotePipeline)
+    info = {
+        "title": "LOV3 (Feat. Bryan Chase, Okasian) (LOV3 (Feat. Bryan Chase, Okasian))",
+    }
+
+    assert pipeline._best_source_title(info) == "LOV3 (Feat. Bryan Chase, Okasian)"
+
+
 def test_caption_title_strips_instagram_prefix_and_hashtags():
     title = VideoNotePipeline._caption_title(
         "1,234 likes, 56 comments - reels_drgn: Hidden Speedy AI로 만드는 법 #ai #tutorial"

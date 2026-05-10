@@ -92,6 +92,19 @@ def test_unique_output_base_uses_parentheses_for_duplicates(tmp_path: Path):
     assert base.name == "2605101200 source (2)"
 
 
+def test_output_paths_do_not_treat_title_dots_as_extensions(tmp_path: Path):
+    base = tmp_path / "2605102002 LOV3 (Feat. Bryan Chase, Okasian)"
+
+    video_path = VideoNotePipeline._output_path(base, ".mp4")
+    transcript_path = VideoNotePipeline._output_path(base, ".txt")
+    summary_path = VideoNotePipeline._summary_output_path(base)
+
+    assert video_path.name == "2605102002 LOV3 (Feat. Bryan Chase, Okasian).mp4"
+    assert transcript_path.name == "2605102002 LOV3 (Feat. Bryan Chase, Okasian).txt"
+    assert summary_path.name == "2605102002 LOV3 (Feat. Bryan Chase, Okasian)_요약.txt"
+    assert len({video_path, transcript_path, summary_path}) == 3
+
+
 def test_media_extensions_cover_common_phone_formats():
     assert {".mov", ".mp4", ".3gp", ".m4v"} <= VIDEO_EXTENSIONS
     assert {".mp3", ".m4a", ".amr", ".caf", ".aiff"} <= AUDIO_EXTENSIONS
