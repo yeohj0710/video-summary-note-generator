@@ -1,6 +1,12 @@
 from pathlib import Path
 
-from clipnote_ai.pipeline import ApiCostTracker, TranscriptChunk, USD_TO_KRW, VideoNotePipeline
+from clipnote_ai.pipeline import (
+    TEXT_MODEL_PRICING_USD_PER_1M,
+    ApiCostTracker,
+    TranscriptChunk,
+    USD_TO_KRW,
+    VideoNotePipeline,
+)
 from clipnote_ai.settings import AppSettings
 
 
@@ -70,6 +76,30 @@ class DummyUsage:
     input_tokens = 10_000
     output_tokens = 2_000
     input_tokens_details = {"cached_tokens": 1_000}
+
+
+def test_text_pricing_covers_expanded_model_choices():
+    expected_models = {
+        "gpt-5.5",
+        "gpt-5.4",
+        "gpt-5.4-mini",
+        "gpt-5.4-nano",
+        "gpt-5",
+        "gpt-5-mini",
+        "gpt-5-nano",
+        "gpt-4.1",
+        "gpt-4.1-mini",
+        "gpt-4.1-nano",
+        "gpt-4o",
+        "gpt-4o-mini",
+        "o4-mini",
+        "o3",
+        "o3-mini",
+        "o1",
+        "o1-mini",
+    }
+
+    assert expected_models <= set(TEXT_MODEL_PRICING_USD_PER_1M)
 
 
 def test_cost_tracker_estimates_text_and_transcription_costs():
