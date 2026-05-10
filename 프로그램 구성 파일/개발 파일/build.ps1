@@ -8,7 +8,7 @@ $NotesDirName = -join ([char[]](0xC0DD, 0xC131, 0xB41C, 0x20, 0xB178, 0xD2B8))
 $GuideFileName = (-join ([char[]](0xC0AC, 0xC6A9, 0xC124, 0xBA85, 0xC11C))) + ".html"
 $ApiGuideFileName = "openai_api_key_guide.html"
 $SourceGuideFileName = "video_source_guide.html"
-$ExeBaseName = -join ([char[]](0xB3D9, 0xC601, 0xC0C1, 0x20, 0xC694, 0xC57D, 0x20, 0xB178, 0xD2B8, 0x20, 0xC0DD, 0xC131, 0xAE30))
+$ExeBaseName = -join ([char[]](0xC601, 0xC0C1, 0x00B7, 0xC74C, 0xC131, 0x20, 0xC694, 0xC57D, 0x20, 0xB178, 0xD2B8, 0x20, 0xC0DD, 0xC131, 0xAE30))
 $ExeFileName = $ExeBaseName + ".exe"
 Set-Location $DevRoot
 
@@ -54,9 +54,15 @@ if (-not (Test-Path $BuiltRuntimeDir)) {
     throw "Built runtime folder was not found: $BuiltRuntimeDir"
 }
 
-$OldExe = Join-Path $RepoRoot "ClipNoteAI.exe"
-if (Test-Path $OldExe) {
-    Remove-Item -LiteralPath $OldExe -Force
+$OldExeNames = @(
+    "ClipNoteAI.exe",
+    ((-join ([char[]](0xB3D9, 0xC601, 0xC0C1, 0x20, 0xC694, 0xC57D, 0x20, 0xB178, 0xD2B8, 0x20, 0xC0DD, 0xC131, 0xAE30))) + ".exe")
+)
+foreach ($OldExeName in $OldExeNames) {
+    $OldExe = Join-Path $RepoRoot $OldExeName
+    if (Test-Path $OldExe) {
+        Remove-Item -LiteralPath $OldExe -Force
+    }
 }
 Copy-Item $BuiltExe (Join-Path $RepoRoot $ExeFileName) -Force
 

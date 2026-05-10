@@ -1,7 +1,7 @@
 [project]
 name = "video-summary-note-generator"
 version = "0.1.0"
-description = "릴스, 유튜브, 로컬 동영상을 전사하고 요약 노트로 변환하는 Windows 데스크톱 앱"
+description = "릴스, 유튜브, 로컬 영상과 음성을 전사하고 요약 노트로 변환하는 Windows 데스크톱 앱"
 readme = "README.md"
 requires-python = ">=3.11"
 

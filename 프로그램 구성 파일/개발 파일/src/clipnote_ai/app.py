@@ -33,7 +33,7 @@ from clipnote_ai.utils import resource_path
 
 SOURCE_URL_MODE = "링크로 가져오기"
 SOURCE_FILE_MODE = "내 컴퓨터 파일"
-PRODUCT_NAME = "동영상 요약 노트 생성기"
+PRODUCT_NAME = "영상·음성 요약 노트 생성기"
 CUSTOM_TEXT_MODEL_OPTION = "직접 입력"
 TRANSCRIPTION_MODEL_CHOICES = ["gpt-4o-mini-transcribe", "gpt-4o-transcribe"]
 TEXT_MODEL_CHOICES = ["gpt-5-nano", "gpt-4.1-nano", "gpt-4o-mini", CUSTOM_TEXT_MODEL_OPTION]

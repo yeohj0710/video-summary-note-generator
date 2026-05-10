@@ -366,7 +366,7 @@ class VideoNotePipeline:
             suffix = Path(source).suffix.lower()
             if suffix in AUDIO_EXTENSIONS:
                 return "내 컴퓨터 오디오 파일"
-            return "내 컴퓨터 동영상 파일"
+            return "내 컴퓨터 영상 파일"
 
         host = urlparse(source.strip()).netloc.lower()
         if "instagram.com" in host:
@@ -497,7 +497,7 @@ class VideoNotePipeline:
                     "1. Chrome 또는 Edge에서 Instagram에 로그인되어 있는지 확인\n"
                     "2. 비공개/삭제된 릴스가 아닌지 확인\n"
                     "3. 브라우저를 완전히 닫은 뒤 다시 실행\n"
-                    "4. 계속 안 되면 릴스를 직접 저장한 동영상 파일로 넣기"
+                    "4. 계속 안 되면 릴스를 직접 저장한 영상 파일로 넣기"
                 )
             return UserFacingError(
                 "Instagram에서 로그인이 필요한 릴스라서 다운로드하지 못했습니다.\n\n"
@@ -505,7 +505,7 @@ class VideoNotePipeline:
                 "1. Chrome 또는 Edge에서 Instagram에 로그인\n"
                 "2. 프로그램의 '영상 가져오기'에서 '브라우저 쿠키 사용' 체크\n"
                 "3. 로그인한 브라우저를 선택한 뒤 다시 실행\n\n"
-                "그래도 안 되면 릴스를 직접 저장한 동영상 파일로 넣어 주세요."
+                "그래도 안 되면 릴스를 직접 저장한 영상 파일로 넣어 주세요."
             )
 
         if retried_with_cookies:
@@ -1420,7 +1420,7 @@ class VideoNotePipeline:
       {source_link_html}
     </header>
     {''.join(scene_cards)}
-    <footer>동영상 요약 노트 생성기 · developed by yeohj0710</footer>
+    <footer>영상·음성 요약 노트 생성기 · developed by yeohj0710</footer>
   </main>
 </body>
 </html>
@@ -1503,7 +1503,7 @@ class VideoNotePipeline:
             topMargin=17 * mm,
             bottomMargin=17 * mm,
             title=title,
-            author="동영상 요약 노트 생성기",
+            author="영상·음성 요약 노트 생성기",
             subject="developed by yeohj0710",
         )
         width, _height = A4
@@ -1587,7 +1587,7 @@ class VideoNotePipeline:
             canvas.saveState()
             canvas.setFont(regular_font, 8)
             canvas.setFillColor(colors.HexColor("#7a8797"))
-            canvas.drawRightString(width - doc.rightMargin, 9 * mm, f"동영상 요약 노트 생성기 · developed by yeohj0710 · {document.page}")
+            canvas.drawRightString(width - doc.rightMargin, 9 * mm, f"영상·음성 요약 노트 생성기 · developed by yeohj0710 · {document.page}")
             canvas.restoreState()
 
         doc.build(story, onFirstPage=draw_footer, onLaterPages=draw_footer)
