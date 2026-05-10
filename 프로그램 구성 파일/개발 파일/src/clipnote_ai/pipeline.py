@@ -37,6 +37,7 @@ SUPPORT_DIR_NAME = "기타 파일"
 SUPPORT_MARKDOWN_NAME = "요약 노트.md"
 SUPPORT_HTML_NAME = "요약 노트.html"
 USD_TO_KRW = 1459.10
+AUDIO_EXTENSIONS = {".mp3", ".wav", ".m4a", ".aac", ".flac", ".ogg", ".opus", ".wma"}
 
 TEXT_MODEL_PRICING_USD_PER_1M = {
     "gpt-5.5": (5.00, 0.50, 30.00),
@@ -256,7 +257,7 @@ class VideoNotePipeline:
 
         source = source.strip()
         if not source:
-            raise ValueError("URL 또는 동영상 파일을 입력해 주세요.")
+            raise ValueError("URL 또는 영상/오디오 파일을 입력해 주세요.")
         if not self.settings.api_key.strip():
             raise ValueError("OpenAI API 키를 입력해 주세요.")
 
@@ -274,7 +275,7 @@ class VideoNotePipeline:
         else:
             source_video_path = Path(source).expanduser().resolve()
             if not source_video_path.exists():
-                raise FileNotFoundError(f"동영상 파일을 찾을 수 없습니다: {source_video_path}")
+                raise FileNotFoundError(f"영상 또는 오디오 파일을 찾을 수 없습니다: {source_video_path}")
             source_title = source_video_path.stem
 
         safe_title = sanitize_filename(source_title)
@@ -284,7 +285,7 @@ class VideoNotePipeline:
         summary_path = final_base.with_name(f"{final_base.name}_요약").with_suffix(".txt")
 
         if source_video_path.resolve() != video_path.resolve():
-            self.progress("영상 저장 중", 0.10, f"동영상을 결과 폴더에 저장합니다: {video_path.name}")
+            self.progress("파일 저장 중", 0.10, f"파일을 결과 폴더에 저장합니다: {video_path.name}")
             shutil.copy2(source_video_path, video_path)
             if self.is_url(source):
                 try:
@@ -295,7 +296,7 @@ class VideoNotePipeline:
             video_path = source_video_path
 
         duration = get_media_duration(video_path, self.ffmpeg)
-        self.progress("영상 분석 중", 0.14, f"영상 길이: {format_timecode(duration)}")
+        self.progress("파일 분석 중", 0.14, f"재생 길이: {format_timecode(duration)}")
 
         with tempfile.TemporaryDirectory(prefix="video_note_") as temp_dir:
             chunks = self._extract_audio_chunks(video_path, Path(temp_dir), duration)
@@ -328,6 +329,9 @@ class VideoNotePipeline:
 
     def _source_kind(self, source: str) -> str:
         if not self.is_url(source):
+            suffix = Path(source).suffix.lower()
+            if suffix in AUDIO_EXTENSIONS:
+                return "내 컴퓨터 오디오 파일"
             return "내 컴퓨터 동영상 파일"
 
         host = urlparse(source.strip()).netloc.lower()
@@ -637,7 +641,7 @@ class VideoNotePipeline:
 
         chunk_paths = sorted(chunk_dir.glob("chunk_*.mp3"))
         if not chunk_paths:
-            raise RuntimeError("추출된 오디오 조각이 없습니다. 영상에 음성 트랙이 있는지 확인해 주세요.")
+            raise RuntimeError("추출된 오디오 조각이 없습니다. 영상/오디오 파일에 음성이 있는지 확인해 주세요.")
 
         chunks: list[TranscriptChunk] = []
         for index, path in enumerate(chunk_paths):

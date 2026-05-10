@@ -335,7 +335,7 @@ class ClipNoteApp(ctk.CTk):
         credit.bind("<Button-1>", lambda _event: self._open_developer_profile())
         subtitle = ctk.CTkLabel(
             header,
-            text="릴스, 유튜브, 로컬 동영상을 저장하고 전체 스크립트 TXT와 상세 요약 TXT로 변환합니다.",
+            text="릴스, 유튜브, 로컬 영상/오디오를 저장하고 전체 스크립트 TXT와 상세 요약 TXT로 변환합니다.",
             font=self.font_subtitle,
             text_color="#475569",
         )
@@ -434,7 +434,7 @@ class ClipNoteApp(ctk.CTk):
             command=self._open_source_guide,
         )
         self.source_guide_button.grid(row=0, column=0, padx=22, pady=(18, 12), sticky="e")
-        self._helper_label(card, "유튜브/릴스 링크를 붙여넣거나, PC에 저장된 영상 파일을 선택하는 곳입니다.", 1)
+        self._helper_label(card, "유튜브/릴스 링크를 붙여넣거나, PC에 저장된 영상 또는 오디오 파일을 선택하는 곳입니다.", 1)
 
         ctk.CTkLabel(card, text="가져올 방식", font=self.font_label, text_color="#334155").grid(
             row=2, column=0, padx=22, pady=(0, 8), sticky="w"
@@ -521,7 +521,7 @@ class ClipNoteApp(ctk.CTk):
         self.file_panel.grid_columnconfigure(0, weight=1)
         ctk.CTkLabel(
             self.file_panel,
-            text="내 컴퓨터 영상 파일",
+            text="내 컴퓨터 영상/오디오 파일",
             font=self.font_label,
             text_color="#334155",
         ).grid(row=0, column=0, padx=16, pady=(16, 7), sticky="w")
@@ -531,7 +531,7 @@ class ClipNoteApp(ctk.CTk):
         self.file_entry = ctk.CTkEntry(
             file_row,
             textvariable=self.file_var,
-            placeholder_text="mp4, mov, mkv, avi, webm 파일",
+            placeholder_text="mp4, mov, mkv, avi, webm, mp3, wav 파일",
             height=40,
             font=self.font_input,
             corner_radius=7,
@@ -900,9 +900,11 @@ class ClipNoteApp(ctk.CTk):
         if self.is_processing:
             return
         path = filedialog.askopenfilename(
-            title="동영상 파일 선택",
+            title="영상 또는 오디오 파일 선택",
             filetypes=[
-                ("동영상 파일", "*.mp4 *.mov *.mkv *.avi *.webm *.m4v"),
+                ("영상/오디오 파일", "*.mp4 *.mov *.mkv *.avi *.webm *.m4v *.mp3 *.wav *.m4a *.aac *.flac *.ogg *.opus *.wma"),
+                ("영상 파일", "*.mp4 *.mov *.mkv *.avi *.webm *.m4v"),
+                ("오디오 파일", "*.mp3 *.wav *.m4a *.aac *.flac *.ogg *.opus *.wma"),
                 ("모든 파일", "*.*"),
             ],
         )
@@ -1261,13 +1263,13 @@ class ClipNoteApp(ctk.CTk):
             if is_url_mode:
                 messagebox.showwarning("링크 필요", "릴스 또는 유튜브 링크를 입력해 주세요.")
             else:
-                messagebox.showwarning("파일 필요", "내 컴퓨터의 동영상 파일을 선택해 주세요.")
+                messagebox.showwarning("파일 필요", "내 컴퓨터의 영상 또는 오디오 파일을 선택해 주세요.")
             return
         if is_url_mode and not source.lower().startswith(("http://", "https://")):
             messagebox.showwarning("링크 확인", "링크는 http:// 또는 https://로 시작해야 합니다.")
             return
         if not is_url_mode and not Path(source).expanduser().exists():
-            messagebox.showwarning("파일 확인", "선택한 동영상 파일을 찾을 수 없습니다.")
+            messagebox.showwarning("파일 확인", "선택한 영상 또는 오디오 파일을 찾을 수 없습니다.")
             return
         if not settings.api_key:
             messagebox.showwarning("API 키 필요", "OpenAI API 키를 입력해 주세요.")

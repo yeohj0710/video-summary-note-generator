@@ -86,7 +86,7 @@
 <body>
   <main>
     <h1>동영상 스크립트 TXT 생성기 사용설명서</h1>
-    <p class="lead">영상을 넣으면 동영상 파일, 읽기 쉬운 전체 스크립트 TXT, 상세 요약 TXT를 같은 이름으로 만들어 주는 프로그램입니다.</p>
+    <p class="lead">영상이나 오디오를 넣으면 원본 파일, 읽기 쉬운 전체 스크립트 TXT, 상세 요약 TXT를 같은 이름으로 만들어 주는 프로그램입니다.</p>
     <div class="credit">developed by yeohj0710</div>
 
     <h2>1. 결과물</h2>
@@ -95,6 +95,9 @@
   2605091859 영상제목.mp4
   2605091859 영상제목.txt
   2605091859 영상제목_요약.txt
+  2605091901 회의녹음.mp3
+  2605091901 회의녹음.txt
+  2605091901 회의녹음_요약.txt
   2605091907 다른영상.mp4
   2605091907 다른영상.txt
   2605091907 다른영상_요약.txt</pre>
@@ -103,7 +106,7 @@
     <h2>2. 가장 빠른 사용 순서</h2>
     <ol>
       <li><span class="path">동영상 요약 노트 생성기.exe</span>를 실행합니다.</li>
-      <li>유튜브/릴스 링크를 넣거나, 내 컴퓨터의 동영상 파일을 선택합니다.</li>
+      <li>유튜브/릴스 링크를 넣거나, 내 컴퓨터의 영상/오디오 파일을 선택합니다.</li>
       <li>OpenAI API 키를 입력합니다.</li>
       <li>저장 폴더가 <span class="path">생성된 노트</span>인지 확인합니다.</li>
       <li>필요하면 <strong>요약 설정</strong>에서 자동 요약 길이를 끄고 원하는 문장 수를 입력합니다.</li>
@@ -127,8 +130,9 @@
     <p>유튜브나 릴스 링크를 넣으면 영상이 먼저 다운로드되고, 같은 이름의 전체 스크립트 TXT와 요약 TXT가 만들어집니다. 모두 <span class="path">생성된 노트</span> 폴더에 저장됩니다.</p>
     <div class="notice">로그인이 필요한 릴스나 유튜브 영상은 브라우저 쿠키 사용 옵션을 켜야 할 수 있습니다.</div>
 
-    <h2>5. 내 컴퓨터 영상</h2>
-    <p>내 컴퓨터 파일을 선택하면 원본 영상이 <span class="path">생성된 노트</span> 폴더에 복사되고, 같은 이름의 전체 스크립트 TXT와 요약 TXT가 만들어집니다.</p>
+    <h2>5. 내 컴퓨터 영상/오디오</h2>
+    <p>내 컴퓨터 파일을 선택하면 원본 영상이나 오디오가 <span class="path">생성된 노트</span> 폴더에 복사되고, 같은 이름의 전체 스크립트 TXT와 요약 TXT가 만들어집니다.</p>
+    <p><span class="path">mp3</span>, <span class="path">wav</span>, <span class="path">m4a</span> 같은 오디오 파일만 넣어도 사용할 수 있습니다.</p>
 
     <h2>6. 폴더 설명</h2>
     <table>
@@ -138,7 +142,7 @@
       <tbody>
         <tr><td><span class="path">동영상 요약 노트 생성기.exe</span></td><td>프로그램 실행 파일입니다.</td></tr>
         <tr><td><span class="path">사용설명서.html</span></td><td>이 설명서 파일입니다.</td></tr>
-        <tr><td><span class="path">생성된 노트</span></td><td>완성된 동영상 파일, 전체 스크립트 TXT, 요약 TXT가 저장되는 폴더입니다.</td></tr>
+        <tr><td><span class="path">생성된 노트</span></td><td>완성된 영상/오디오 파일, 전체 스크립트 TXT, 요약 TXT가 저장되는 폴더입니다.</td></tr>
         <tr><td><span class="path">프로그램 구성 파일</span></td><td>실행에 필요한 구성 파일입니다. 삭제하거나 이름을 바꾸면 실행이 안 될 수 있습니다.</td></tr>
       </tbody>
     </table>
