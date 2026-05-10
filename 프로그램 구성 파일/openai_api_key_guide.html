@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OpenAI API Key 받는 법</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --text: #111827;
+      --muted: #475569;
+      --line: #dbe3ef;
+      --blue: #2563eb;
+      --soft: #eef4ff;
+      --panel: #ffffff;
+      --bg: #f4f7fb;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Pretendard", "Malgun Gothic", "Segoe UI", sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      line-height: 1.72;
+    }
+    main {
+      max-width: 920px;
+      margin: 0 auto;
+      padding: 48px 24px 72px;
+    }
+    header {
+      margin-bottom: 26px;
+    }
+    h1 {
+      margin: 0 0 10px;
+      font-size: 34px;
+      letter-spacing: 0;
+    }
+    .lead {
+      margin: 0;
+      color: var(--muted);
+      font-size: 16px;
+    }
+    section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 24px;
+      margin: 16px 0;
+    }
+    h2 {
+      margin: 0 0 14px;
+      font-size: 22px;
+      letter-spacing: 0;
+    }
+    ol, ul {
+      padding-left: 24px;
+      margin: 10px 0 0;
+    }
+    li + li { margin-top: 8px; }
+    a {
+      color: var(--blue);
+      font-weight: 700;
+      text-decoration: none;
+    }
+    a:hover { text-decoration: underline; }
+    .path, code {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 6px;
+      background: var(--soft);
+      color: #1e40af;
+      font-family: "Cascadia Mono", Consolas, monospace;
+      font-size: 0.95em;
+    }
+    .note {
+      border-left: 4px solid var(--blue);
+      background: #f8fbff;
+      padding: 12px 14px;
+      color: var(--muted);
+      margin-top: 14px;
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>OpenAI API Key 받는 법</h1>
+    <p class="lead">동영상 요약 노트 생성기에서 전사와 요약을 만들려면 본인 OpenAI API Key가 필요합니다.</p>
+  </header>
+
+  <section>
+    <h2>1. OpenAI Platform에 로그인</h2>
+    <ol>
+      <li><a href="https://platform.openai.com/" target="_blank" rel="noreferrer">platform.openai.com</a>에 접속합니다.</li>
+      <li>OpenAI 계정으로 로그인합니다. ChatGPT 계정과 같을 수 있지만, API 사용은 Platform에서 따로 관리됩니다.</li>
+      <li>처음 사용하는 계정이라면 화면 안내에 따라 조직 또는 프로젝트 설정을 완료합니다.</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>2. 결제 또는 크레딧 확인</h2>
+    <ol>
+      <li><a href="https://platform.openai.com/settings/organization/billing/overview" target="_blank" rel="noreferrer">Billing Overview</a>를 엽니다.</li>
+      <li>API 사용 가능한 결제 수단 또는 크레딧이 있는지 확인합니다.</li>
+      <li>크레딧이 없거나 결제 설정이 없으면 전사나 요약 중 할당량 오류가 날 수 있습니다.</li>
+    </ol>
+    <p class="note">ChatGPT Plus, Pro 같은 구독과 OpenAI API 사용 요금은 별도로 취급될 수 있습니다. 이 프로그램은 OpenAI API를 사용합니다.</p>
+  </section>
+
+  <section>
+    <h2>3. API Key 만들기</h2>
+    <ol>
+      <li><a href="https://platform.openai.com/api-keys" target="_blank" rel="noreferrer">API Keys</a> 페이지를 엽니다.</li>
+      <li>사용할 프로젝트를 확인한 뒤 새 Secret Key를 만듭니다.</li>
+      <li>이름은 예를 들어 <span class="path">video-summary-note-generator</span>처럼 알아보기 쉽게 입력합니다.</li>
+      <li>생성된 키를 복사합니다. 보통 <span class="path">sk-...</span> 또는 <span class="path">sk-proj-...</span> 형태입니다.</li>
+    </ol>
+    <p class="note">키는 생성 직후에만 전체 값을 볼 수 있습니다. 나중에 다시 전체 키를 확인할 수 없으니 안전한 곳에 보관하세요.</p>
+  </section>
+
+  <section>
+    <h2>4. 프로그램에 입력</h2>
+    <ol>
+      <li>동영상 요약 노트 생성기를 실행합니다.</li>
+      <li><span class="path">OpenAI API Key 설정</span> 영역의 API 키 입력칸에 복사한 키를 붙여넣습니다.</li>
+      <li>계속 같은 PC에서 쓸 예정이면 <span class="path">이 PC에 API 키 저장</span>을 체크합니다.</li>
+      <li><span class="path">설정</span> 버튼을 누르면 입력칸이 잠기고, 이후에는 <span class="path">수정</span> 버튼으로 다시 고칠 수 있습니다.</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>5. 오류가 날 때 확인할 것</h2>
+    <ul>
+      <li>API 키 앞뒤에 공백이 붙지 않았는지 확인합니다.</li>
+      <li>Billing에 결제 수단 또는 크레딧이 있는지 확인합니다.</li>
+      <li>키를 삭제했거나 권한을 너무 제한했다면 새 키를 만들어 다시 입력합니다.</li>
+      <li>키가 외부에 노출된 것 같으면 OpenAI Platform에서 즉시 삭제하고 새 키를 발급합니다.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>공식 참고 링크</h2>
+    <ul>
+      <li><a href="https://platform.openai.com/api-keys" target="_blank" rel="noreferrer">OpenAI API Keys</a></li>
+      <li><a href="https://help.openai.com/en/articles/9186755-managing-your-work-in-the-api-platform-with-projects" target="_blank" rel="noreferrer">OpenAI Help Center: Projects and API keys</a></li>
+      <li><a href="https://help.openai.com/en/articles/8264644-what-is-prepaid-billing" target="_blank" rel="noreferrer">OpenAI Help Center: Prepaid billing</a></li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>

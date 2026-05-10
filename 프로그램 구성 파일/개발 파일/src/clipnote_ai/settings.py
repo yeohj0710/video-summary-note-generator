@@ -18,6 +18,8 @@ class AppSettings:
     transcription_model: str = "gpt-4o-mini-transcribe"
     text_model: str = DEFAULT_TEXT_MODEL
     output_dir: str = ""
+    auto_summary_sentences: bool = True
+    summary_sentence_count: int = 30
     auto_scene_count: bool = True
     fixed_scene_count: int = 10
     min_scene_count: int = 4

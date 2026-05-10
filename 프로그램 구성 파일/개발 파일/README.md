@@ -2,6 +2,8 @@
 
 릴스, 유튜브 영상, 또는 내 컴퓨터의 동영상 파일을 OpenAI API로 전사하고, 읽기 쉬운 전체 스크립트 TXT와 상세 요약 TXT로 저장하는 Windows 데스크톱 앱입니다.
 
+요약은 전체 스크립트 문장 수의 약 1/5을 기본 목표로 하며, 앱에서 직접 문장 수를 지정할 수 있습니다.
+
 ## 배포 구조
 
 ```text
@@ -11,6 +13,7 @@ video-summary-note-generator/
   README.md
   생성된 노트/
   프로그램 구성 파일/
+    openai_api_key_guide.html
 ```
 
 ## 결과물 구조

@@ -96,6 +96,7 @@ class VideoNotePipeline:
 
         self.progress("준비 중", 0.02, "저장할 파일 이름을 준비하고 있습니다.")
 
+        source_kind = self._source_kind(source)
         if self.is_url(source):
             downloaded_path, source_title = self._download_video(source, started, output_root)
             source_video_path = downloaded_path
@@ -130,7 +131,7 @@ class VideoNotePipeline:
             self._transcribe_chunks(chunks)
             self._clean_chunks(chunks)
             self._write_transcript(transcript_path, chunks)
-            self._write_summary(summary_path, source_title, chunks)
+            self._write_summary(summary_path, source_title, chunks, source_kind)
 
         self.progress("완료", 1.0, f"결과 생성 완료: {video_path.name}, {transcript_path.name}, {summary_path.name}")
         return PipelineResult(
@@ -152,6 +153,17 @@ class VideoNotePipeline:
             suffix += 1
             candidate = output_root / f"{base_name}_{suffix}"
         return candidate
+
+    def _source_kind(self, source: str) -> str:
+        if not self.is_url(source):
+            return "내 컴퓨터 동영상 파일"
+
+        host = urlparse(source.strip()).netloc.lower()
+        if "instagram.com" in host:
+            return "인스타그램 릴스 또는 짧은 세로 영상"
+        if "youtube.com" in host or "youtu.be" in host:
+            return "유튜브 영상"
+        return "링크로 가져온 온라인 영상"
 
     def _download_video(self, url: str, started: str, downloads_dir: Path) -> tuple[Path, str]:
         downloads_dir.mkdir(parents=True, exist_ok=True)
@@ -343,23 +355,28 @@ class VideoNotePipeline:
         transcript_path.write_text("\n\n".join(paragraphs).strip() + "\n", encoding="utf-8")
         return transcript_path
 
-    def _write_summary(self, summary_path: Path, title: str, chunks: list[TranscriptChunk]) -> Path:
-        self.progress("요약 정리 중", 0.86, "중요한 수치와 디테일을 살려 상세 요약을 만들고 있습니다.")
+    def _write_summary(self, summary_path: Path, title: str, chunks: list[TranscriptChunk], source_kind: str = "동영상") -> Path:
+        self.progress("요약 정리 중", 0.86, "전체 스크립트를 기준으로 적절한 길이의 상세 요약을 만들고 있습니다.")
         transcript = self._summary_source_text(chunks)
+        target_sentences = self._summary_target_sentence_count(transcript)
         summary = self._text_response(
             system=(
                 "너는 한국어 영상 스크립트를 정리하는 전문 편집자다. "
                 "짧게 뭉개는 요약이 아니라, 핵심 디테일을 보존하는 상세 요약본을 만든다. "
-                "원문에 없는 내용, 추측, 평가를 추가하지 않는다."
+                "원문에 없는 내용, 추측, 평가를 추가하지 않는다. "
+                "영상의 성격에 맞춰 정보형 영상은 개념, 절차, 근거, 수치, 조건, 결론을 중심으로 정리하고, "
+                "브이로그, 릴스, 홍보, 대화형 영상은 사건 흐름, 맥락, 핵심 장면, 주장, 분위기를 중심으로 정리한다."
             ),
             user=(
                 f"영상 제목: {title}\n\n"
-                "아래 전사문을 요약해 주세요.\n\n"
+                f"영상 유형: {source_kind}\n"
+                f"목표 길이: 약 {target_sentences}문장\n\n"
+                "아래 전사문 전체를 입력으로 삼아 요약해 주세요.\n\n"
                 "요약 원칙:\n"
                 "- 핵심 수치, 금액, 날짜, 기간, 비율, 조건, 인물/회사/제품명, 단계, 예외, 원인과 결과는 반드시 남긴다.\n"
                 "- 반복 표현, 말버릇, 중복 설명, 진행자가 시간을 끄는 말만 줄인다.\n"
                 "- 단순히 비례해서 줄이지 말고, 중요한 정보 밀도가 높은 부분은 길게 남긴다.\n"
-                "- 너무 짧은 요약은 금지한다. 원문을 대체해서 이해할 수 있을 정도로 상세하게 쓴다.\n"
+                "- 목표 길이를 크게 벗어나지 않되, 중요한 디테일을 버려야 할 정도로 억지로 줄이지는 않는다.\n"
                 "- 원문의 순서를 최대한 유지한다.\n"
                 "- 확실하지 않은 내용은 단정하지 않는다.\n\n"
                 "출력 형식:\n"
@@ -373,15 +390,42 @@ class VideoNotePipeline:
         summary_path.write_text(self._normalize_summary_text(summary, title), encoding="utf-8")
         return summary_path
 
-    def _summary_source_text(self, chunks: list[TranscriptChunk], max_chars: int = 120_000) -> str:
+    def _summary_source_text(self, chunks: list[TranscriptChunk], max_chars: int = 180_000) -> str:
         blocks: list[str] = []
-        per_chunk_limit = max(1200, max_chars // max(1, len(chunks)))
         for chunk in chunks:
             text = self._strip_transcript_labels(chunk.clean_text or chunk.raw_text)
-            if len(text) > per_chunk_limit:
-                text = text[:per_chunk_limit].rstrip() + "\n...[긴 구간이라 일부 생략됨]"
             blocks.append(text)
-        return "\n\n".join(block for block in blocks if block.strip()).strip()
+        transcript = "\n\n".join(block for block in blocks if block.strip()).strip()
+        if len(transcript) <= max_chars:
+            return transcript
+
+        head = transcript[: max_chars // 2].rstrip()
+        tail = transcript[-max_chars // 2 :].lstrip()
+        return f"{head}\n\n...[전체 전사문이 길어 중간 일부를 줄였습니다]...\n\n{tail}"
+
+    def _summary_target_sentence_count(self, transcript: str) -> int:
+        if not transcript.strip():
+            return 0
+
+        if not bool(getattr(self.settings, "auto_summary_sentences", True)):
+            return self._clamp_int(getattr(self.settings, "summary_sentence_count", 30), 3, 160)
+
+        source_sentence_count = len(self._split_sentences(transcript))
+        if source_sentence_count <= 0:
+            rough_count = max(1, len(transcript) // 70)
+            source_sentence_count = rough_count
+
+        if source_sentence_count <= 12:
+            return max(3, min(source_sentence_count, round(source_sentence_count * 0.6)))
+        return self._clamp_int(round(source_sentence_count / 5), 6, 120)
+
+    @staticmethod
+    def _clamp_int(value: object, low: int, high: int) -> int:
+        try:
+            parsed = int(value)
+        except (TypeError, ValueError):
+            parsed = low
+        return max(low, min(high, parsed))
 
     def _normalize_summary_text(self, summary: str, title: str) -> str:
         cleaned = re.sub(r"\n{3,}", "\n\n", summary.strip())

@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from clipnote_ai.pipeline import TranscriptChunk, VideoNotePipeline
+from clipnote_ai.settings import AppSettings
 
 
 def test_sentence_splitter_keeps_version_numbers_together():
@@ -29,6 +30,21 @@ def test_summary_text_removes_title_and_adds_reading_space():
 
     assert not text.startswith("Sample Video")
     assert "GPT 5.1 started here.\n\nGPT 5.2 followed with more details." in text
+
+
+def test_summary_target_defaults_to_one_fifth_of_script_sentences():
+    pipeline = VideoNotePipeline.__new__(VideoNotePipeline)
+    pipeline.settings = AppSettings(auto_summary_sentences=True)
+    transcript = " ".join(f"Sentence {index}." for index in range(1, 51))
+
+    assert pipeline._summary_target_sentence_count(transcript) == 10
+
+
+def test_summary_target_can_be_set_manually():
+    pipeline = VideoNotePipeline.__new__(VideoNotePipeline)
+    pipeline.settings = AppSettings(auto_summary_sentences=False, summary_sentence_count=17)
+
+    assert pipeline._summary_target_sentence_count("Sentence one. Sentence two.") == 17
 
 
 def test_write_transcript_omits_internal_time_labels(tmp_path: Path):

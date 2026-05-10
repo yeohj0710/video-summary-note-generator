@@ -238,6 +238,8 @@ class ClipNoteApp(ctk.CTk):
         self.transcription_model_var = tk.StringVar(value=self.settings.transcription_model)
         self.text_model_var = tk.StringVar(value=self.settings.text_model)
         self.output_dir_var = tk.StringVar(value=self.settings.output_dir or str(default_output_dir()))
+        self.auto_summary_var = tk.BooleanVar(value=self.settings.auto_summary_sentences)
+        self.summary_sentence_var = tk.StringVar(value=str(self.settings.summary_sentence_count))
         self.auto_scene_var = tk.BooleanVar(value=self.settings.auto_scene_count)
         self.fixed_scene_var = tk.StringVar(value=str(self.settings.fixed_scene_count))
         self.min_scene_var = tk.StringVar(value=str(self.settings.min_scene_count))
@@ -350,7 +352,8 @@ class ClipNoteApp(ctk.CTk):
 
         self._source_card(left).grid(row=0, column=0, sticky="ew", pady=(0, 14))
         self._api_card(left).grid(row=1, column=0, sticky="ew", pady=(0, 14))
-        self._output_card(left).grid(row=2, column=0, sticky="ew", pady=(0, 14))
+        self._summary_card(left).grid(row=2, column=0, sticky="ew", pady=(0, 14))
+        self._output_card(left).grid(row=3, column=0, sticky="ew", pady=(0, 14))
         self._register_processing_controls()
 
         self._status_panel(right)
@@ -487,15 +490,31 @@ class ClipNoteApp(ctk.CTk):
             self.file_button,
             self.api_key_entry,
             self.api_key_lock_button,
+            self.api_key_guide_button,
             self.save_api_key_checkbox,
             self.transcription_model_combo,
             self.text_model_combo,
+            self.auto_summary_checkbox,
+            self.summary_sentence_entry,
             self.output_dir_entry,
             self.output_dir_button,
         ]
 
     def _api_card(self, parent: ctk.CTkBaseClass) -> ctk.CTkFrame:
-        card = self._card(parent, "2. OpenAI 설정")
+        card = self._card(parent, "2. OpenAI API Key 설정")
+        self.api_key_guide_button = ctk.CTkButton(
+            card,
+            text="API 키 받는 법",
+            width=122,
+            height=32,
+            corner_radius=7,
+            font=self.font_label,
+            fg_color=self.secondary_color,
+            hover_color=self.secondary_hover,
+            text_color=self.secondary_text,
+            command=self._open_api_key_guide,
+        )
+        self.api_key_guide_button.grid(row=0, column=0, padx=22, pady=(18, 12), sticky="e")
         ctk.CTkLabel(card, text="API 키", font=self.font_label, text_color="#334155").grid(
             row=1, column=0, padx=22, pady=(0, 7), sticky="w"
         )
@@ -538,7 +557,7 @@ class ClipNoteApp(ctk.CTk):
         ctk.CTkLabel(model_grid, text="전사 모델", font=self.font_label, text_color="#334155").grid(
             row=0, column=0, sticky="w"
         )
-        ctk.CTkLabel(model_grid, text="문장 정리 모델", font=self.font_label, text_color="#334155").grid(
+        ctk.CTkLabel(model_grid, text="문장 정리/요약 모델", font=self.font_label, text_color="#334155").grid(
             row=0, column=1, padx=(12, 0), sticky="w"
         )
         self.transcription_model_combo = ctk.CTkComboBox(
@@ -564,8 +583,52 @@ class ClipNoteApp(ctk.CTk):
         self._refresh_api_key_lock()
         return card
 
+    def _summary_card(self, parent: ctk.CTkBaseClass) -> ctk.CTkFrame:
+        card = self._card(parent, "3. 요약 설정")
+        self.auto_summary_checkbox = ctk.CTkCheckBox(
+            card,
+            text="자동으로 요약 길이 결정",
+            variable=self.auto_summary_var,
+            command=self._refresh_summary_mode,
+            font=self.font_body,
+            checkbox_width=24,
+            checkbox_height=24,
+        )
+        self.auto_summary_checkbox.grid(row=1, column=0, padx=22, pady=(0, 12), sticky="w")
+
+        summary_box = ctk.CTkFrame(card, fg_color="#f6f8fb", corner_radius=8)
+        summary_box.grid(row=2, column=0, padx=22, pady=(0, 22), sticky="ew")
+        summary_box.grid_columnconfigure((0, 1), weight=1)
+
+        self.summary_sentence_label = ctk.CTkLabel(
+            summary_box,
+            text="직접 지정 문장 수",
+            font=self.font_label,
+            text_color="#334155",
+        )
+        self.summary_sentence_label.grid(row=0, column=0, padx=16, pady=(14, 7), sticky="w")
+        self.summary_sentence_entry = ctk.CTkEntry(
+            summary_box,
+            textvariable=self.summary_sentence_var,
+            height=38,
+            width=118,
+            font=self.font_input,
+            corner_radius=7,
+        )
+        self.summary_sentence_entry.grid(row=1, column=0, padx=16, pady=(0, 14), sticky="w")
+
+        ctk.CTkLabel(
+            summary_box,
+            text="자동 기준: 전체 스크립트 문장의 약 1/5",
+            font=self.font_label,
+            text_color="#64748b",
+        ).grid(row=1, column=1, padx=16, pady=(0, 14), sticky="e")
+
+        self._refresh_summary_mode()
+        return card
+
     def _output_card(self, parent: ctk.CTkBaseClass) -> ctk.CTkFrame:
-        card = self._card(parent, "3. 저장 설정")
+        card = self._card(parent, "4. 저장 설정")
         output_row = ctk.CTkFrame(card, fg_color="transparent")
         output_row.grid(row=1, column=0, padx=22, pady=(0, 16), sticky="ew")
         output_row.grid_columnconfigure(0, weight=1)
@@ -595,7 +658,7 @@ class ClipNoteApp(ctk.CTk):
         action_row.grid_columnconfigure(0, weight=1)
         self.start_button = ctk.CTkButton(
             action_row,
-            text="스크립트 만들기",
+            text="노트 만들기",
             height=46,
             corner_radius=8,
             font=ctk.CTkFont(family=self.font_family, size=16, weight="bold"),
@@ -606,6 +669,14 @@ class ClipNoteApp(ctk.CTk):
             command=self._start_job,
         )
         self.start_button.grid(row=0, column=0, sticky="ew", padx=(0, 10))
+        self.start_button_spinner = ActivitySpinner(
+            action_row,
+            size=18,
+            color="#ffffff",
+            bg=self.primary_hover,
+        )
+        self.start_button_spinner.place(in_=self.start_button, relx=0.35, rely=0.5, anchor="center")
+        self.start_button_spinner.place_forget()
         self.open_output_button = ctk.CTkButton(
             action_row,
             text="결과 폴더 열기",
@@ -729,12 +800,13 @@ class ClipNoteApp(ctk.CTk):
             self.api_key_lock_button.configure(
                 state="normal",
                 text="수정",
-                fg_color=self.warning_color,
-                hover_color=self.warning_hover,
-                text_color="#ffffff",
+                fg_color=self.secondary_color,
+                hover_color=self.secondary_hover,
+                text_color=self.secondary_text,
             )
+            self._set_widget_cursor(self.api_key_entry, "no")
         else:
-            self.api_key_entry.configure(state="normal", fg_color="#ffffff", border_color="#94a3b8")
+            self.api_key_entry.configure(state="normal", fg_color="#ffffff", border_color="#94a3b8", text_color="#111827")
             self.api_key_lock_button.configure(
                 state="normal",
                 text="설정",
@@ -742,6 +814,25 @@ class ClipNoteApp(ctk.CTk):
                 hover_color=self.primary_hover,
                 text_color="#ffffff",
             )
+            self._set_widget_cursor(self.api_key_entry, "")
+
+    def _refresh_summary_mode(self) -> None:
+        if not hasattr(self, "summary_sentence_entry"):
+            return
+
+        if self.is_processing:
+            self.summary_sentence_entry.configure(state="disabled", fg_color="#edf2f7", border_color="#cbd5e1", text_color="#94a3b8")
+            self.summary_sentence_label.configure(text_color="#94a3b8")
+            return
+
+        if self.auto_summary_var.get():
+            self.summary_sentence_entry.configure(state="disabled", fg_color="#edf2f7", border_color="#cbd5e1", text_color="#94a3b8")
+            self.summary_sentence_label.configure(text_color="#94a3b8")
+            self._set_widget_cursor(self.summary_sentence_entry, "no")
+        else:
+            self.summary_sentence_entry.configure(state="normal", fg_color="#ffffff", border_color="#94a3b8", text_color="#111827")
+            self.summary_sentence_label.configure(text_color="#475569")
+            self._set_widget_cursor(self.summary_sentence_entry, "")
 
     def _refresh_scene_count_mode(self) -> None:
         if not hasattr(self, "fixed_scene_entry"):
@@ -830,6 +921,7 @@ class ClipNoteApp(ctk.CTk):
             for combo in (self.cookie_browser_combo, self.transcription_model_combo, self.text_model_combo):
                 combo.configure(state="disabled", fg_color="#edf2f7", border_color="#cbd5e1", button_color="#cbd5e1")
             self._refresh_api_key_lock()
+            self._refresh_summary_mode()
             self._refresh_scene_count_mode()
             return
 
@@ -846,23 +938,28 @@ class ClipNoteApp(ctk.CTk):
         for combo in (self.cookie_browser_combo, self.transcription_model_combo, self.text_model_combo):
             combo.configure(state="normal", fg_color="#ffffff", border_color="#94a3b8", button_color="#9ca3af")
         self._refresh_api_key_lock()
+        self._refresh_summary_mode()
         self._refresh_scene_count_mode()
 
     def _set_start_button_busy(self, busy: bool) -> None:
         if busy:
             self.start_button.configure(
                 state="disabled",
-                text="처리 중",
+                text="    처리 중",
                 fg_color=self.primary_hover,
                 hover_color=self.primary_hover,
                 text_color_disabled="#ffffff",
             )
+            self.start_button_spinner.place(in_=self.start_button, relx=0.38, rely=0.5, anchor="center")
+            self.start_button_spinner.start()
             self._set_processing_indicator(True)
         else:
             self._set_processing_indicator(False)
+            self.start_button_spinner.stop()
+            self.start_button_spinner.place_forget()
             self.start_button.configure(
                 state="normal",
-                text="스크립트 만들기",
+                text="노트 만들기",
                 fg_color=self.primary_color,
                 hover_color=self.primary_hover,
                 text_color="#ffffff",
@@ -896,12 +993,15 @@ class ClipNoteApp(ctk.CTk):
         min_scene = as_int(self.min_scene_var.get(), 4, 1, 60)
         max_scene = as_int(self.max_scene_var.get(), 24, min_scene, 80)
         fixed_scene = as_int(self.fixed_scene_var.get(), 10, 1, 80)
+        summary_sentence_count = as_int(self.summary_sentence_var.get(), 30, 3, 160)
         settings = AppSettings(
             api_key=self.api_key_var.get().strip(),
             save_api_key=bool(self.save_api_key_var.get()),
             transcription_model=self.transcription_model_var.get().strip() or "gpt-4o-mini-transcribe",
             text_model=self.text_model_var.get().strip() or DEFAULT_TEXT_MODEL,
             output_dir=self.output_dir_var.get().strip() or str(default_output_dir()),
+            auto_summary_sentences=bool(self.auto_summary_var.get()),
+            summary_sentence_count=summary_sentence_count,
             auto_scene_count=bool(self.auto_scene_var.get()),
             fixed_scene_count=fixed_scene,
             min_scene_count=min_scene,
@@ -1009,10 +1109,25 @@ class ClipNoteApp(ctk.CTk):
             return Path(sys.executable).resolve().parent / "사용설명서.html"
         return Path(__file__).resolve().parents[2] / "사용설명서.html"
 
+    def _api_key_guide_path(self) -> Path:
+        if getattr(sys, "frozen", False):
+            return Path(sys.executable).resolve().parent / "프로그램 구성 파일" / "openai_api_key_guide.html"
+        return Path(__file__).resolve().parents[2] / "openai_api_key_guide.html"
+
     def _open_user_guide(self) -> None:
         path = self._guide_path()
         if not path.exists():
             messagebox.showwarning("사용설명서 없음", f"사용설명서 파일을 찾지 못했습니다.\n\n{path}")
+            return
+        if os.name == "nt":
+            os.startfile(path)  # type: ignore[attr-defined]
+        else:
+            webbrowser.open(path.as_uri())
+
+    def _open_api_key_guide(self) -> None:
+        path = self._api_key_guide_path()
+        if not path.exists():
+            messagebox.showwarning("API 키 가이드 없음", f"API 키 가이드 파일을 찾지 못했습니다.\n\n{path}")
             return
         if os.name == "nt":
             os.startfile(path)  # type: ignore[attr-defined]
