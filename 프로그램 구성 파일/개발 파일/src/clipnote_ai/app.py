@@ -268,6 +268,7 @@ class ClipNoteApp(ctk.CTk):
             self.text_model_var = tk.StringVar(value=CUSTOM_TEXT_MODEL_OPTION)
             self.custom_text_model_var = tk.StringVar(value=saved_text_model)
         self.output_dir_var = tk.StringVar(value=self.settings.output_dir or str(default_output_dir()))
+        self.create_summary_var = tk.BooleanVar(value=getattr(self.settings, "create_summary", True))
         self.auto_summary_var = tk.BooleanVar(value=self.settings.auto_summary_sentences)
         self.summary_sentence_var = tk.StringVar(value=str(self.settings.summary_sentence_count))
         self.polish_transcript_var = tk.BooleanVar(value=getattr(self.settings, "polish_transcript", False))
@@ -345,7 +346,7 @@ class ClipNoteApp(ctk.CTk):
         credit.bind("<Button-1>", lambda _event: self._open_developer_profile())
         subtitle = ctk.CTkLabel(
             header,
-            text="릴스, 유튜브, 로컬 영상/오디오를 저장하고 전체 스크립트 TXT와 상세 요약 TXT로 변환합니다.",
+            text="릴스, 유튜브, 로컬 영상/오디오를 저장하고 전체 스크립트 TXT와 선택 요약 TXT로 변환합니다.",
             font=self.font_subtitle,
             text_color="#475569",
         )
@@ -622,6 +623,7 @@ class ClipNoteApp(ctk.CTk):
             self.text_model_combo,
             self.custom_text_model_entry,
             self.polish_transcript_checkbox,
+            self.create_summary_checkbox,
             self.auto_summary_checkbox,
             self.summary_sentence_entry,
             self.output_dir_entry,
@@ -777,7 +779,17 @@ class ClipNoteApp(ctk.CTk):
 
     def _summary_card(self, parent: ctk.CTkBaseClass) -> ctk.CTkFrame:
         card = self._card(parent, "3. 요약 설정")
-        self._helper_label(card, "요약 TXT가 얼마나 길게 만들어질지 정하는 곳입니다. 처음에는 자동을 추천합니다.", 1)
+        self._helper_label(card, "요약 TXT를 만들지 않을 때는 체크를 끄면 전사만 저장합니다. 기본값은 켜짐입니다.", 1)
+        self.create_summary_checkbox = ctk.CTkCheckBox(
+            card,
+            text="요약 TXT도 만들기",
+            variable=self.create_summary_var,
+            command=self._refresh_summary_mode,
+            font=self.font_body,
+            checkbox_width=24,
+            checkbox_height=24,
+        )
+        self.create_summary_checkbox.grid(row=2, column=0, padx=22, pady=(0, 12), sticky="w")
         self.auto_summary_checkbox = ctk.CTkCheckBox(
             card,
             text="자동으로 요약 길이 결정",
@@ -787,10 +799,10 @@ class ClipNoteApp(ctk.CTk):
             checkbox_width=24,
             checkbox_height=24,
         )
-        self.auto_summary_checkbox.grid(row=2, column=0, padx=22, pady=(0, 12), sticky="w")
+        self.auto_summary_checkbox.grid(row=3, column=0, padx=22, pady=(0, 12), sticky="w")
 
         self.summary_box = ctk.CTkFrame(card, fg_color="#f6f8fb", corner_radius=8)
-        self.summary_box.grid(row=3, column=0, padx=22, pady=(0, 22), sticky="ew")
+        self.summary_box.grid(row=4, column=0, padx=22, pady=(0, 22), sticky="ew")
         self.summary_box.grid_columnconfigure(0, weight=1)
 
         self.summary_sentence_label = ctk.CTkLabel(
@@ -824,7 +836,7 @@ class ClipNoteApp(ctk.CTk):
 
     def _output_card(self, parent: ctk.CTkBaseClass) -> ctk.CTkFrame:
         card = self._card(parent, "4. 저장 설정")
-        self._helper_label(card, "완성된 영상, 전체 스크립트 TXT, 요약 TXT가 저장될 폴더입니다.", 1)
+        self._helper_label(card, "완성된 영상, 전체 스크립트 TXT, 요약 옵션을 켠 경우 요약 TXT가 저장될 폴더입니다.", 1)
         output_row = ctk.CTkFrame(card, fg_color="transparent")
         output_row.grid(row=2, column=0, padx=22, pady=(0, 10), sticky="ew")
         output_row.grid_columnconfigure(0, weight=1)
@@ -1036,12 +1048,24 @@ class ClipNoteApp(ctk.CTk):
         if not hasattr(self, "summary_box"):
             return
 
+        summary_enabled = bool(self.create_summary_var.get())
+        auto_state = "disabled" if self.is_processing or not summary_enabled else "normal"
+        self.auto_summary_checkbox.configure(state=auto_state)
+        self._set_widget_cursor(self.auto_summary_checkbox, "no" if auto_state == "disabled" else "")
+
+        if not summary_enabled:
+            self.summary_box.grid_remove()
+            self.summary_sentence_entry.configure(state="disabled", fg_color="#edf2f7", border_color="#cbd5e1", text_color="#94a3b8")
+            self.summary_sentence_label.configure(text_color="#94a3b8")
+            self._set_widget_cursor(self.summary_sentence_entry, "no")
+            return
+
         if self.auto_summary_var.get():
             self.summary_box.grid_remove()
             self._set_widget_cursor(self.summary_sentence_entry, "")
             return
 
-        self.summary_box.grid(row=3, column=0, padx=22, pady=(0, 22), sticky="ew")
+        self.summary_box.grid(row=4, column=0, padx=22, pady=(0, 22), sticky="ew")
         if self.is_processing:
             self.summary_sentence_entry.configure(state="disabled", fg_color="#edf2f7", border_color="#cbd5e1", text_color="#94a3b8")
             self.summary_sentence_label.configure(text_color="#94a3b8")
@@ -1257,6 +1281,7 @@ class ClipNoteApp(ctk.CTk):
             transcription_model=transcription_model,
             text_model=text_model,
             polish_transcript=bool(self.polish_transcript_var.get()),
+            create_summary=bool(self.create_summary_var.get()),
             output_dir=output_dir,
             output_dir_custom=not is_current_default_output_dir(output_dir),
             auto_summary_sentences=bool(self.auto_summary_var.get()),
@@ -1273,6 +1298,9 @@ class ClipNoteApp(ctk.CTk):
         return settings
 
     def _prepare_text_model_for_start(self, settings: AppSettings) -> AppSettings:
+        if not (bool(getattr(settings, "polish_transcript", True)) or bool(getattr(settings, "create_summary", True))):
+            return settings
+
         if self.text_model_var.get() != CUSTOM_TEXT_MODEL_OPTION:
             return settings
 
@@ -1376,7 +1404,8 @@ class ClipNoteApp(ctk.CTk):
                 self._set_start_button_busy(False)
                 self._set_controls_locked(False)
                 self._set_output_button_enabled(True)
-                messagebox.showinfo("완료", f"영상, 스크립트, 요약 파일이 저장되었습니다.\n\n{self.latest_result.output_dir}")
+                saved_files = "영상, 스크립트, 요약 파일" if self.latest_result.summary_path else "영상과 스크립트 파일"
+                messagebox.showinfo("완료", f"{saved_files}이 저장되었습니다.\n\n{self.latest_result.output_dir}")
             elif kind == "error":
                 self._set_status("오류", 0)
                 self._append_log(str(payload))

@@ -83,6 +83,45 @@ def test_run_accepts_audio_file_and_keeps_audio_extension(tmp_path: Path, monkey
     assert app._source_kind(str(source)) == "내 컴퓨터 오디오 파일"
 
 
+def test_run_can_skip_summary_and_write_transcript_only(tmp_path: Path, monkeypatch):
+    source = tmp_path / "voice.mp3"
+    source.write_bytes(b"fake-audio")
+    output_dir = tmp_path / "notes"
+
+    app = VideoNotePipeline.__new__(VideoNotePipeline)
+    app.settings = AppSettings(api_key="sk-test", output_dir=str(output_dir), create_summary=False)
+    app.ffmpeg = "ffmpeg"
+    app.progress = lambda *_args: None
+
+    monkeypatch.setattr(pipeline_module, "get_media_duration", lambda *_args: 5.0)
+    monkeypatch.setattr(
+        app,
+        "_extract_audio_chunks",
+        lambda *_args: [
+            TranscriptChunk(
+                index=0,
+                start=0,
+                end=5,
+                path=tmp_path / "chunk.mp3",
+                clean_text="요약 없이 전사만 저장합니다.",
+            )
+        ],
+    )
+    monkeypatch.setattr(app, "_transcribe_chunks", lambda _chunks: None)
+    monkeypatch.setattr(app, "_clean_chunks", lambda _chunks: None)
+    monkeypatch.setattr(app, "_write_summary", lambda *_args: (_ for _ in ()).throw(AssertionError("summary skipped")))
+
+    result = app.run(str(source))
+    files = sorted(path.name for path in output_dir.iterdir())
+
+    assert result.summary_path is None
+    assert len(files) == 2
+    assert any(name.endswith("voice.mp3") for name in files)
+    assert any(name.endswith("voice.txt") for name in files)
+    assert not any(name.endswith("_요약.txt") for name in files)
+    assert "전사만 저장" in result.transcript_path.read_text(encoding="utf-8")
+
+
 def test_unique_output_base_uses_parentheses_for_duplicates(tmp_path: Path):
     pipeline = VideoNotePipeline.__new__(VideoNotePipeline)
     (tmp_path / "2605101200 source.mp4").write_bytes(b"old")

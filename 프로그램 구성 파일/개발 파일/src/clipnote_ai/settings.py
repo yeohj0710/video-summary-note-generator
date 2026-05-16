@@ -20,6 +20,7 @@ class AppSettings:
     transcription_model: str = "gpt-4o-mini-transcribe"
     text_model: str = DEFAULT_TEXT_MODEL
     polish_transcript: bool = True
+    create_summary: bool = True
     output_dir: str = ""
     output_dir_custom: bool = False
     auto_summary_sentences: bool = True

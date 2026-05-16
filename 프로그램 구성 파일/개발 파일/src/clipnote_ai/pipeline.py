@@ -185,7 +185,7 @@ class PipelineResult:
     output_dir: Path
     video_path: Path
     transcript_path: Path
-    summary_path: Path
+    summary_path: Path | None
     title: str
     cost_report: CostReport
 
@@ -318,7 +318,8 @@ class VideoNotePipeline:
         final_base = self._unique_output_base(output_root, f"{started} {safe_title}", source_video_path.suffix or ".mp4")
         video_path = self._output_path(final_base, source_video_path.suffix or ".mp4")
         transcript_path = self._output_path(final_base, ".txt")
-        summary_path = self._summary_output_path(final_base)
+        create_summary = bool(getattr(self.settings, "create_summary", True))
+        summary_path = self._summary_output_path(final_base) if create_summary else None
 
         if source_video_path.resolve() != video_path.resolve():
             self.progress("파일 저장 중", 0.10, f"파일을 결과 폴더에 저장합니다: {video_path.name}")
@@ -339,9 +340,15 @@ class VideoNotePipeline:
             self._transcribe_chunks(chunks)
             self._clean_chunks(chunks)
             self._write_transcript(transcript_path, chunks)
-            self._write_summary(summary_path, source_title, chunks, source_kind)
+            if summary_path is not None:
+                self._write_summary(summary_path, source_title, chunks, source_kind)
+            else:
+                self.progress("요약 건너뜀", 0.90, "요약 생성 옵션이 꺼져 있어 전체 스크립트만 저장합니다.")
 
-        self.progress("완료", 1.0, f"결과 생성 완료: {video_path.name}, {transcript_path.name}, {summary_path.name}")
+        result_names = [video_path.name, transcript_path.name]
+        if summary_path is not None:
+            result_names.append(summary_path.name)
+        self.progress("완료", 1.0, f"결과 생성 완료: {', '.join(result_names)}")
         return PipelineResult(
             output_dir=output_root,
             video_path=video_path,

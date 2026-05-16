@@ -73,3 +73,7 @@ def test_custom_output_dir_named_like_default_is_preserved(tmp_path: Path, monke
 
 def test_transcript_polish_is_enabled_by_default():
     assert AppSettings().polish_transcript is True
+
+
+def test_summary_creation_is_enabled_by_default():
+    assert AppSettings().create_summary is True
